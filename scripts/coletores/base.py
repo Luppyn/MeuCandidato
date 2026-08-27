@@ -86,6 +86,15 @@ class Coletor:
     def coletar(self, candidato: Candidato) -> list[Registro]:
         raise NotImplementedError
 
+    def preparar(self, candidatos: "list[Candidato]") -> None:
+        """Passada única sobre todos os candidatos, antes do laço.
+
+        Fonte que aceita consulta em lote (ou que publica a base inteira) faz
+        aqui uma requisição só, em vez de uma por candidato. Depois, `coletar`
+        apenas lê o resultado já em memória.
+        """
+        return None
+
     def aviso_inicial(self) -> str | None:
         """Pendência que impede a coleta — chave ausente, arquivo fora do ar.
 
