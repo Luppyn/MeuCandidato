@@ -68,6 +68,65 @@ valor mudou.
 No site, o painel **"Procedência dos dados"** mostra data, tamanho e SHA-256 de
 cada arquivo importado, além da cobertura de cada coluna externa.
 
+## Quando o download do TSE falha
+
+O sintoma é `HTTP Error 403: Forbidden` no passo "Montar a base". O CDN do TSE
+fica atrás de um WAF que recusa dois tipos de cliente: IP de datacenter — que é
+o dos runners do GitHub — e User-Agent que não pareça navegador.
+
+Diagnostique antes de mexer em qualquer coisa:
+
+```bash
+python3 scripts/importar_tse.py --testar-download --ano 2026
+```
+
+```
+proxy configurado : sim
+proxy             : host.do.proxy:8080
+IP de saída       : 189.x.x.x
+
+consulta_cand:
+  ok   https://.../consulta_cand_2026.zip
+       78.4 MB  (com agente alternativo)
+```
+
+O que ele diz, e o que fazer:
+
+| Saída | Significa | O que fazer |
+| --- | --- | --- |
+| `proxy configurado: não` | O secret não chegou ao workflow | Confirme `COLETOR_PROXY` em Settings → Secrets |
+| IP de datacenter | O proxy não está sendo usado | Veja se o secret tem `http://usuario:senha@host:porta` |
+| `nenhum endereço respondeu` | O endereço mudou ou o WAF barrou | Ajuste `config/links.json` |
+| `ok ... (com agente alternativo)` | Funcionou, mas o WAF recusou o agente que identifica o projeto | Nada — é o comportamento esperado |
+
+### Como o download se defende
+
+Três camadas, nesta ordem:
+
+1. **Descoberta pelo portal de dados abertos.** O TSE roda CKAN, que responde
+   `package_show` com a lista real de arquivos. Perguntar a ele é mais robusto
+   do que fixar o endereço: quando o TSE muda o caminho — e ele muda entre
+   eleições — a descoberta acompanha sozinha.
+2. **Endereços de reserva.** Se o portal não responder, valem os modelos de
+   `config/links.json`.
+3. **Sequência de User-Agents.** Começa pelo que identifica o projeto e só recua
+   para um compatível com navegador ao levar 403.
+
+Tudo isso passa pelo proxy, com novas tentativas e sem vazar credencial em log.
+
+### Último recurso
+
+Baixe à mão em https://dadosabertos.tse.jus.br/ e aponte o script para o
+arquivo:
+
+```bash
+python3 scripts/importar_tse.py dados/tse/consulta_cand_2026.zip \
+                               dados/tse/bem_candidato_2026.zip
+```
+
+No workflow, o cache de `dados/tse` faz o mesmo papel: uma vez que os arquivos
+estejam lá, as publicações seguintes não repetem o download.
+
 ## Rodando na sua máquina
 
 O mesmo site, com servidor local em vez de arquivos estáticos:

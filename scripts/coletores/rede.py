@@ -46,6 +46,17 @@ AGENTE = os.environ.get(
     "MeuCandidato/1.0 (ferramenta de consulta a dados publicos; "
     "https://github.com/Luppyn/MeuCandidato)",
 )
+
+# Alguns servidores publicos ficam atras de WAF que recusa qualquer
+# User-Agent que nao pareca navegador - inclusive para baixar arquivo que o
+# proprio orgao publica como dado aberto. A ordem abaixo tenta primeiro o
+# agente que identifica o projeto, e so recua quando levar 403.
+AGENTES = [
+    AGENTE,
+    f"Mozilla/5.0 (compatible; {AGENTE})",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/126.0.0.0 Safari/537.36",
+]
 INTERVALO = float(os.environ.get("COLETOR_INTERVALO", "1.5"))   # segundos por dominio
 TENTATIVAS = int(os.environ.get("COLETOR_TENTATIVAS", "3"))
 TEMPO_LIMITE = int(os.environ.get("COLETOR_TIMEOUT", "45"))
@@ -218,6 +229,59 @@ def buscar(url: str, *, cabecalhos: dict | None = None, corpo: bytes | None = No
             time.sleep(2 ** tentativa + random.uniform(0, 1))
 
     raise ErroDeColeta(f"{url}: {erro_final}")
+
+
+def baixar_arquivo(url: str, destino: pathlib.Path, *, rotular="") -> int:
+    """Baixa um arquivo grande direto para o disco.
+
+    Usa a mesma camada das demais requisicoes - proxy, novas tentativas,
+    credencial escondida em erro - e, diante de 403, tenta os outros
+    User-Agents antes de desistir.
+
+    Devolve o tamanho em bytes. Levanta ErroDeColeta com o que foi tentado.
+    """
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    tentativas: list[str] = []
+
+    for agente in AGENTES:
+        for tentativa in range(1, TENTATIVAS + 1):
+            try:
+                _esperar_a_vez(url)
+                requisicao = urllib.request.Request(url, headers={
+                    "User-Agent": agente,
+                    "Accept": "application/zip,application/octet-stream,*/*",
+                    "Accept-Language": "pt-BR,pt;q=0.9",
+                })
+                parcial = destino.with_suffix(destino.suffix + ".parcial")
+                with _abridor().open(requisicao, timeout=TEMPO_LIMITE * 10) as resposta, \
+                        parcial.open("wb") as saida:
+                    total = 0
+                    while bloco := resposta.read(1024 * 256):
+                        saida.write(bloco)
+                        total += len(bloco)
+                        if (rotular and total >= 1024 * 1024 * 20
+                                and total % (1024 * 1024 * 20) < 1024 * 256):
+                            print(f"    {rotular}: {total / 1_000_000:.0f} MB", flush=True)
+                if total == 0:
+                    parcial.unlink(missing_ok=True)
+                    raise ErroDeColeta(f"{url}: resposta vazia")
+                parcial.replace(destino)
+                return total
+
+            except urllib.error.HTTPError as erro:
+                tentativas.append(f"{erro.code} com agente {agente[:40]}...")
+                if erro.code in (403, 406):
+                    break          # WAF recusou este agente; tenta o proximo
+                if erro.code < 500 and erro.code != 429:
+                    raise ErroDeColeta(f"{url}: HTTP {erro.code}") from erro
+            except (urllib.error.URLError, TimeoutError, OSError) as erro:
+                tentativas.append(f"{type(erro).__name__} com agente {agente[:40]}...")
+
+            if tentativa < TENTATIVAS:
+                time.sleep(2 ** tentativa + random.uniform(0, 1))
+
+    raise ErroDeColeta(f"{url}: nao foi possivel baixar. Tentado: "
+                       + "; ".join(tentativas))
 
 
 def buscar_json(url: str, **kwargs) -> dict | list:

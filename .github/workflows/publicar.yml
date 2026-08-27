@@ -40,6 +40,13 @@ jobs:
   montar:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+
+    env:
+      # O CDN do TSE recusa IP de datacenter, que é o dos runners. Sem o proxy
+      # o download volta 403 e a publicação para no primeiro passo.
+      COLETOR_PROXY: ${{ secrets.COLETOR_PROXY }}
+      COLETOR_INTERVALO: "1.5"
+
     steps:
       - uses: actions/checkout@v4
 
@@ -56,6 +63,16 @@ jobs:
           key: tse-${{ inputs.ano || '2026' }}-${{ github.run_id }}
           restore-keys: |
             tse-${{ inputs.ano || '2026' }}-
+
+      - name: Conferir o acesso aos arquivos do TSE
+        run: |
+          if [ -z "$COLETOR_PROXY" ]; then
+            echo "::warning::COLETOR_PROXY não está definido neste workflow."
+            echo "::warning::O CDN do TSE costuma recusar o IP do runner."
+          fi
+          # Diagnóstico antes de tentar baixar: falha aqui é mais legível.
+          python3 scripts/importar_tse.py --testar-download \
+            --ano "${{ inputs.ano || '2026' }}" || true
 
       - name: Montar a base
         run: |
