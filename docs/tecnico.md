@@ -145,6 +145,22 @@ entram vazias e se preenchem na próxima importação.
 A ordem importa: tabelas, migração e só então índices. Um índice sobre coluna
 nova falharia se fosse criado antes de a coluna existir.
 
+## Versão estática
+
+```bash
+python3 scripts/gerar_estatico.py       # gera publicar/
+cd publicar && python3 -m http.server 8000
+```
+
+Gera um JSON por recorte (ano + cargo + UF, mais o município em cargo
+municipal), que é exatamente o filtro obrigatório do site. O navegador busca só
+o recorte pedido e faz nome, partido, ordenação e paginação localmente.
+
+O `web/app.js` é o mesmo nos dois modos e detecta qual está rodando: se
+`api/saude` responde, é o servidor; senão, é estático.
+
+Como publicar está em [docs/publicar.md](publicar.md).
+
 ## Contribuindo com uma coluna nova
 
 Não precisa mexer em código: registre a fonte em `config/fontes.json` e a coluna

@@ -19,3 +19,6 @@ __pycache__/
 *.pyc
 .venv/
 .DS_Store
+
+# Versao estatica gerada por scripts/gerar_estatico.py
+publicar/
