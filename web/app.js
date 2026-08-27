@@ -47,6 +47,102 @@ async function pegar(caminho) {
   return dados;
 }
 
+/*
+ * O site roda de dois jeitos, com a mesma interface:
+ *
+ *   api       servidor.py servindo o SQLite — uso local, filtro no servidor
+ *   estatico  arquivos JSON pré-gerados — hospedagem sem servidor, filtro
+ *             no navegador dentro do recorte já baixado
+ *
+ * A detecção é por tentativa: se /api/saude responde, é o servidor. Em
+ * hospedagem estática essa rota devolve 404 e o modo cai para estático.
+ */
+
+const fonte = {
+  modo: null,
+  meta: null,
+  recortes: [],
+  cacheGrade: new Map(),
+  cacheBens: new Map(),
+
+  async detectar() {
+    try {
+      const r = await fetch('api/saude', { headers: { Accept: 'application/json' } });
+      if (r.ok) { this.modo = 'api'; return; }
+    } catch (e) { /* sem servidor: modo estático */ }
+    this.modo = 'estatico';
+    this.meta = await pegar('dados/meta.json');
+  },
+
+  configuracao() {
+    return this.modo === 'api'
+      ? Promise.all([pegar('api/colunas'), pegar('api/fontes'),
+                     pegar('api/procedencia'), pegar('api/opcoes')])
+      : Promise.all([pegar('dados/colunas.json'), pegar('dados/fontes.json'),
+                     pegar('dados/procedencia.json'), pegar('dados/opcoes.json')]);
+  },
+
+  /** Nome do arquivo de recorte para os filtros atuais. */
+  arquivoDoRecorte(filtros) {
+    const municipal = CARGOS_MUNICIPAIS.includes(Number(filtros.cargo));
+    const partes = [filtros.ano, filtros.cargo, filtros.uf];
+    if (municipal && filtros.ue) partes.push(filtros.ue);
+    return partes.join('-');
+  },
+
+  async grade(filtros) {
+    const nome = this.arquivoDoRecorte(filtros);
+    if (!this.cacheGrade.has(nome)) {
+      this.cacheGrade.set(nome, await pegar(`dados/grade/${nome}.json`));
+    }
+    return this.cacheGrade.get(nome);
+  },
+
+  async bens(filtros) {
+    const nome = this.arquivoDoRecorte(filtros);
+    if (!this.cacheBens.has(nome)) {
+      this.cacheBens.set(nome, await pegar(`dados/bens/${nome}.json`));
+    }
+    return this.cacheBens.get(nome);
+  },
+
+  /** Aplica nome, partido, situação, ordenação e paginação no navegador. */
+  filtrarLocalmente(candidatos, filtros, { ordem, direcao, pagina, limite }) {
+    const semAcento = (s) => (s || '')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+
+    let linhas = candidatos;
+    if (filtros.ue) linhas = linhas.filter((c) => c.sg_ue === filtros.ue);
+    if (filtros.partido) {
+      linhas = linhas.filter((c) => c.sg_partido === filtros.partido
+                                 || c.nr_partido === filtros.partido);
+    }
+    if (filtros.situacao) {
+      linhas = linhas.filter((c) => c.ds_situacao_candidatura === filtros.situacao);
+    }
+    if (filtros.nome) {
+      const alvo = semAcento(filtros.nome);
+      linhas = linhas.filter((c) => semAcento(
+        [c.nm_candidato, c.nm_urna, c.nm_social].filter(Boolean).join(' ')).includes(alvo));
+    }
+
+    const sinal = direcao === 'desc' ? -1 : 1;
+    linhas = [...linhas].sort((a, b) => {
+      const x = a[ordem], y = b[ordem];
+      if (x === y) return (a.nm_urna || '').localeCompare(b.nm_urna || '', 'pt-BR');
+      if (x === null || x === undefined) return 1;
+      if (y === null || y === undefined) return -1;
+      if (typeof x === 'number' && typeof y === 'number') return (x - y) * sinal;
+      return String(x).localeCompare(String(y), 'pt-BR') * sinal;
+    });
+
+    const total = linhas.length;
+    const paginas = Math.max(1, Math.ceil(total / limite));
+    const inicio = (pagina - 1) * limite;
+    return { total, pagina, limite, paginas, candidatos: linhas.slice(inicio, inicio + limite) };
+  },
+};
+
 /* ---------------------------------------------------------------- formatos */
 
 function formatarMoeda(valor) {
@@ -157,25 +253,26 @@ function atualizarUnidades() {
     $('#f-ue').value = '';
     return;
   }
+  $('#rotulo-ue').querySelector('span').textContent = 'Município / unidade eleitoral *';
 
   const unidades = estado.opcoes.unidades
     .filter((u) => u.ano === ano && u.cargo === cargo && u.uf === uf)
     .sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'pt-BR'));
 
+  // Em cargo municipal o município é obrigatório: uma lista de vereadores de
+  // um estado inteiro não é um recorte útil, e no modo estático cada município
+  // é um arquivo próprio.
   preencherSelect($('#f-ue'), unidades, {
     valor: (u) => u.codigo,
     rotulo: (u) => u.nome || u.codigo,
-    vazio: 'Todos os municípios',
+    vazio: 'Selecione…',
   });
 }
 
 async function carregarBase() {
-  const [colunas, fontes, procedencia, opcoes] = await Promise.all([
-    pegar('/api/colunas'),
-    pegar('/api/fontes'),
-    pegar('/api/procedencia'),
-    pegar('/api/opcoes'),
-  ]);
+  await fonte.detectar();
+  const [colunas, fontes, procedencia, opcoes] = await fonte.configuracao();
+  fonte.recortes = opcoes.recortes || [];
 
   estado.colunas = colunas.colunas;
   estado.links = fontes.links || {};
@@ -224,18 +321,33 @@ async function consultar() {
     texto: 'Carregando…',
   })));
 
-  const p = parametros({
-    pagina: estado.pagina,
-    limite: estado.limite,
-    ordem: estado.ordem,
-    direcao: estado.direcao,
-  });
-
   try {
-    const dados = await pegar(`/api/candidatos?${p}`);
+    let dados;
+    if (fonte.modo === 'api') {
+      const p = parametros({
+        pagina: estado.pagina,
+        limite: estado.limite,
+        ordem: estado.ordem,
+        direcao: estado.direcao,
+      });
+      dados = await pegar(`api/candidatos?${p}`);
+      $('#link-csv').href =
+        `api/candidatos.csv?${parametros({ ordem: estado.ordem, direcao: estado.direcao })}`;
+    } else {
+      const recorte = await fonte.grade(estado.filtros);
+      dados = fonte.filtrarLocalmente(recorte.candidatos, estado.filtros, {
+        ordem: estado.ordem,
+        direcao: estado.direcao,
+        pagina: estado.pagina,
+        limite: estado.limite,
+      });
+      // Sem servidor para montar o CSV, ele é gerado aqui mesmo.
+      prepararCsvLocal(fonte.filtrarLocalmente(recorte.candidatos, estado.filtros, {
+        ordem: estado.ordem, direcao: estado.direcao, pagina: 1, limite: 1e9,
+      }).candidatos);
+    }
     estado.ultimoResultado = dados;
     desenharTabela(dados);
-    $('#link-csv').href = `/api/candidatos.csv?${parametros({ ordem: estado.ordem, direcao: estado.direcao })}`;
   } catch (erro) {
     corpo.textContent = '';
     corpo.append(criar('tr', {}, criar('td', {
@@ -244,6 +356,36 @@ async function consultar() {
       texto: `Não foi possível consultar: ${erro.message}`,
     })));
   }
+}
+
+/** Monta o CSV no navegador, já que não há servidor para gerá-lo. */
+function prepararCsvLocal(candidatos) {
+  const fixas = ['chave', 'ano_eleicao', 'nr_candidato', 'nm_candidato', 'nm_urna',
+                 'ds_cargo', 'sg_uf', 'nm_ue', 'sg_partido', 'nm_partido', 'nm_coligacao',
+                 'ds_situacao_candidatura', 'ds_genero', 'dt_nascimento', 'ds_cor_raca',
+                 'ds_ocupacao', 'ds_grau_instrucao', 'qtd_bens', 'total_bens'];
+  const externas = estado.colunas.filter((c) => c.tipo === 'externo').map((c) => c.id);
+
+  const escapar = (v) => {
+    const texto = v === null || v === undefined ? '' : String(v);
+    return /[";\n]/.test(texto) ? `"${texto.replace(/"/g, '""')}"` : texto;
+  };
+
+  const linhas = [[...fixas, ...externas].join(';')];
+  candidatos.forEach((c) => {
+    const celulas = fixas.map((campo) => escapar(c[campo]));
+    externas.forEach((id) => celulas.push(escapar((c.externos[id] || {}).valor)));
+    linhas.push(celulas.join(';'));
+  });
+
+  // BOM para o Excel abrir acentuação corretamente.
+  const blob = new Blob(['\ufeff' + linhas.join('\r\n')],
+                        { type: 'text/csv;charset=utf-8' });
+  const link = $('#link-csv');
+  if (link.dataset.url) URL.revokeObjectURL(link.dataset.url);
+  link.dataset.url = URL.createObjectURL(blob);
+  link.href = link.dataset.url;
+  link.download = `meucandidato-${fonte.arquivoDoRecorte(estado.filtros)}.csv`;
 }
 
 function colunasVisiveis() {
@@ -409,7 +551,15 @@ function desenharTabela(dados) {
       expandida.append(td);
       linha.after(expandida);
       try {
-        const detalhe = await pegar(`/api/candidato/${encodeURIComponent(candidato.chave)}`);
+        let detalhe;
+        if (fonte.modo === 'api') {
+          detalhe = await pegar(`api/candidato/${encodeURIComponent(candidato.chave)}`);
+        } else {
+          // No modo estático a linha já traz tudo menos os bens, que vêm
+          // num arquivo por recorte, buscado na primeira expansão.
+          const bens = await fonte.bens(estado.filtros);
+          detalhe = { ...candidato, bens: bens[candidato.chave] || [] };
+        }
         td.className = '';
         td.textContent = '';
         td.append(painelDetalhe(detalhe));
@@ -649,6 +799,11 @@ function ligarEventos() {
     if (!cargo || !uf) {
       erro.hidden = false;
       erro.textContent = 'Cargo e UF são obrigatórios para montar a planilha.';
+      return;
+    }
+    if (CARGOS_MUNICIPAIS.includes(Number(cargo)) && !$('#f-ue').value) {
+      erro.hidden = false;
+      erro.textContent = 'Para cargos municipais, escolha também o município.';
       return;
     }
     erro.hidden = true;

@@ -1,0 +1,102 @@
+# Publica o site no GitHub Pages.
+#
+# Monta a base do TSE, aplica os dados externos já coletados (que estão
+# versionados em dados/externo/), gera a versão estática e publica.
+#
+# Roda depois de cada coleta e a cada push na main, para que uma correção de
+# código apareça no site sem precisar esperar a próxima coleta.
+#
+# Antes do primeiro uso: Settings → Pages → Source: GitHub Actions.
+
+name: Publicar site
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "*.md"
+  workflow_run:
+    workflows: ["Coleta externa"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      ano:
+        description: "Ano da eleição a publicar"
+        required: false
+        default: "2026"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Uma publicação por vez; se chegarem duas, a última é a que vale.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  montar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Os arquivos do TSE são grandes e mudam pouco: cache por dia evita
+      # baixar dezenas de MB a cada publicação.
+      - name: Cache dos arquivos do TSE
+        uses: actions/cache@v4
+        with:
+          path: dados/tse
+          key: tse-${{ inputs.ano || '2026' }}-${{ github.run_id }}
+          restore-keys: |
+            tse-${{ inputs.ano || '2026' }}-
+
+      - name: Montar a base
+        run: |
+          ano="${{ inputs.ano || '2026' }}"
+          if ls dados/tse/*.zip >/dev/null 2>&1; then
+            echo "Usando os arquivos do cache."
+            python3 scripts/importar_tse.py dados/tse --ano "$ano"
+          else
+            python3 scripts/importar_tse.py --baixar --ano "$ano"
+          fi
+
+      - name: Aplicar os dados externos coletados
+        run: |
+          if ls dados/externo/*.json dados/externo/*.csv >/dev/null 2>&1; then
+            python3 scripts/importar_externos.py dados/externo/
+          else
+            echo "Nenhum dado externo coletado ainda; o site sai só com a base do TSE."
+          fi
+
+      - name: Gerar a versão estática
+        run: python3 scripts/gerar_estatico.py --ano "${{ inputs.ano || '2026' }}"
+
+      - name: Conferir o que foi gerado
+        run: |
+          test -f publicar/index.html
+          test -f publicar/dados/opcoes.json
+          recortes=$(python3 -c "import json;print(len(json.load(open('publicar/dados/opcoes.json'))['recortes']))")
+          echo "Recortes gerados: $recortes"
+          test "$recortes" -gt 0
+          du -sh publicar
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: publicar
+
+  publicar:
+    needs: montar
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
