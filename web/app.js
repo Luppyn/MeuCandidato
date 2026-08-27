@@ -478,12 +478,19 @@ function celula(coluna, candidato) {
       criar('strong', { texto: valor || candidato.nm_candidato || '—' }),
     ]);
     if (candidato.url_divulgacand) {
+      // Enquanto o modelo de link direto não for conferido contra o site do
+      // TSE, o link abre a busca do portal — e o texto diz isso, para não
+      // prometer uma página de candidato que não vai aparecer.
+      const conferido = (estado.links.perfil_candidato || {}).verificado;
       conteudo.append(criar('a', {
         href: candidato.url_divulgacand,
         target: '_blank',
         rel: 'noreferrer',
-        title: 'Abrir o registro no DivulgaCandContas do TSE',
-        texto: '↗',
+        title: conferido
+          ? 'Abrir o registro no DivulgaCandContas do TSE'
+          : `Abrir a busca do DivulgaCandContas — procure por "${candidato.nm_candidato || candidato.nm_urna}". `
+            + 'O link direto para a página do candidato ainda não foi mapeado.',
+        texto: conferido ? '↗' : '⌕',
       }));
     }
     return criar('td', { classe: 'coluna-fixa' }, conteudo);
