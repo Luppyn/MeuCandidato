@@ -96,7 +96,7 @@ CABECALHO_CAND = [
     "NM_FEDERACAO", "NM_COLIGACAO", "DS_COMPOSICAO_COLIGACAO", "DS_NACIONALIDADE",
     "SG_UF_NASCIMENTO", "NM_MUNICIPIO_NASCIMENTO", "DT_NASCIMENTO", "NR_IDADE_DATA_POSSE",
     "DS_GENERO", "DS_GRAU_INSTRUCAO", "DS_ESTADO_CIVIL", "DS_COR_RACA", "DS_OCUPACAO",
-    "VR_DESPESA_MAX_CAMPANHA", "ST_REELEICAO", "ST_DECLARAR_BENS",
+    "VR_DESPESA_MAX_CAMPANHA", "ST_REELEICAO", "ST_DECLARAR_BENS", "NR_PROCESSO",
     "DS_SITUACAO_CANDIDATO_TOT",
 ]
 
@@ -177,6 +177,8 @@ def gerar(ano: int, semente: int):
                     "VR_DESPESA_MAX_CAMPANHA": moeda(rnd.randint(50_000, 5_000_000)),
                     "ST_REELEICAO": rnd.choice(["S", "N"]),
                     "ST_DECLARAR_BENS": "S",
+                    "NR_PROCESSO": f"06{rnd.randint(0, 99999):05d}-{rnd.randint(10,99)}."
+                                   f"{ano}.6.{rnd.randint(1, 27):02d}.0000",
                     "DS_SITUACAO_CANDIDATO_TOT": rnd.choice(["APTO", "INAPTO"]),
                 })
 

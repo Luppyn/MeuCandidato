@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 
-from . import rede
+from . import navegador, rede
 from ._busca import linha_da_tabela, valor_da_coluna
 from .base import Candidato, Coletor as Base, Registro
 
@@ -25,7 +25,7 @@ class Coletor(Base):
             return []
 
         try:
-            html = rede.buscar(PAGINA)
+            html = navegador.buscar_com_plano_b(PAGINA)
         except rede.ErroDeColeta:
             return []
 

@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 
 RAIZ = pathlib.Path(__file__).resolve().parent
 CAMINHO_PADRAO = RAIZ / "dados" / "meucandidato.sqlite"
-VERSAO_ESQUEMA = 1
+VERSAO_ESQUEMA = 2
 
 ESQUEMA = """
 CREATE TABLE IF NOT EXISTS candidato (
@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS candidato (
     nr_turno                  INTEGER,
     sq_candidato              TEXT,
     nr_candidato              TEXT,
+    nr_processo               TEXT,
     nm_candidato              TEXT,
     nm_urna                   TEXT,
     nm_social                 TEXT,
@@ -164,9 +165,76 @@ def conectar(somente_leitura: bool = False) -> sqlite3.Connection:
 
 
 def criar_esquema(con: sqlite3.Connection) -> None:
-    con.executescript(ESQUEMA)
+    """Cria ou atualiza o esquema.
+
+    A ordem importa: as tabelas primeiro, depois a migração de colunas, e só
+    então os índices. Um índice sobre uma coluna acrescentada numa versão nova
+    falharia se fosse criado antes de a coluna existir na base antiga.
+    """
+    comandos = [c.strip() for c in ESQUEMA.split(";") if c.strip()]
+    tabelas = [c for c in comandos if "CREATE TABLE" in c.upper()]
+    indices = [c for c in comandos if "CREATE INDEX" in c.upper()]
+
+    for comando in tabelas:
+        con.execute(comando)
+    migrar_colunas(con)
+    for comando in indices:
+        con.execute(comando)
+
     definir_meta(con, "versao_esquema", str(VERSAO_ESQUEMA))
     con.commit()
+
+
+def migrar_colunas(con: sqlite3.Connection) -> list[str]:
+    """Acrescenta a uma base já existente as colunas novas do ESQUEMA.
+
+    `CREATE TABLE IF NOT EXISTS` não altera tabela que já existe, então uma
+    base criada por uma versão anterior ficaria sem as colunas acrescentadas
+    depois. Aqui as colunas declaradas no ESQUEMA são comparadas com as que a
+    base tem, e as que faltam entram por ALTER TABLE — que preenche as linhas
+    existentes com NULL, sem perder dado nenhum.
+    """
+    acrescentadas = []
+    for tabela, colunas in _colunas_do_esquema().items():
+        existentes = {
+            linha["name"]
+            for linha in con.execute(f"PRAGMA table_info({tabela})")
+        }
+        if not existentes:
+            continue  # tabela ainda não criada; o executescript acima cuida
+        for nome, tipo in colunas:
+            if nome not in existentes:
+                con.execute(f"ALTER TABLE {tabela} ADD COLUMN {nome} {tipo}")
+                acrescentadas.append(f"{tabela}.{nome}")
+    if acrescentadas:
+        con.commit()
+    return acrescentadas
+
+
+def _colunas_do_esquema() -> dict[str, list[tuple[str, str]]]:
+    """Lê o ESQUEMA e devolve {tabela: [(coluna, tipo), ...]}."""
+    import re
+
+    tabelas: dict[str, list[tuple[str, str]]] = {}
+    for bloco in re.finditer(
+        r"CREATE TABLE IF NOT EXISTS\s+(\w+)\s*\((.*?)\n\);", ESQUEMA, re.S
+    ):
+        tabela, corpo = bloco.group(1), bloco.group(2)
+        colunas = []
+        for linha in corpo.splitlines():
+            linha = linha.strip().rstrip(",")
+            if not linha or linha.startswith(("--", "UNIQUE", "PRIMARY KEY",
+                                              "FOREIGN KEY", "CHECK")):
+                continue
+            partes = linha.split(None, 1)
+            if len(partes) == 2 and partes[0].isidentifier():
+                # ALTER TABLE não aceita PRIMARY KEY nem UNIQUE em coluna nova.
+                tipo = partes[1]
+                if "PRIMARY KEY" in tipo.upper() or "UNIQUE" in tipo.upper():
+                    continue
+                colunas.append((partes[0], tipo))
+        tabelas[tabela] = colunas
+    return tabelas
 
 
 def agora() -> str:

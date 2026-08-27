@@ -1,0 +1,51 @@
+{
+  "_leia_me": "Endereços das APIs oficiais usadas pelos coletores, isolados do código porque órgãos públicos mudam endpoint sem aviso. Se um coletor parar de funcionar, corrija aqui antes de mexer em código. NENHUMA CHAVE fica neste arquivo: as credenciais vêm de variável de ambiente, nomeadas em 'variavel_chave'.",
+
+  "portal_transparencia": {
+    "base": "https://api.portaldatransparencia.gov.br/api-de-dados",
+    "variavel_chave": "CHAVE_PORTAL_TRANSPARENCIA",
+    "cabecalho_chave": "chave-api-dados",
+    "como_obter": "Cadastro gratuito em https://api.portaldatransparencia.gov.br/ — a chave é liberada na hora.",
+    "limite_por_minuto": 90,
+    "consultas": {
+      "ceis": "/ceis?nome={nome}&pagina={pagina}",
+      "cnep": "/cnep?nome={nome}&pagina={pagina}",
+      "ceaf": "/ceaf?nome={nome}&pagina={pagina}",
+      "leniencia": "/acordos-leniencia?nome={nome}&pagina={pagina}"
+    },
+    "documentacao": "https://api.portaldatransparencia.gov.br/swagger-ui/index.html"
+  },
+
+  "tcu": {
+    "_nota": "Listas em massa, sem captcha e sem chave. A de 'implicação eleitoral' é a que o TCU entrega ao TSE por força da Lei da Ficha Limpa.",
+    "pagina": "https://sites.tcu.gov.br/dados-abertos/inidoneos-irregulares",
+    "arquivos": {
+      "contas_irregulares_eleitoral": "https://contas.tcu.gov.br/ords/condenacao/consulta/arquivo?tipo=eleitoral",
+      "contas_irregulares": "https://contas.tcu.gov.br/ords/condenacao/consulta/arquivo?tipo=irregulares",
+      "inabilitados": "https://contas.tcu.gov.br/ords/condenacao/consulta/arquivo?tipo=inabilitados",
+      "inidoneos": "https://contas.tcu.gov.br/ords/condenacao/consulta/arquivo?tipo=inidoneos"
+    },
+    "consulta_manual": "https://sites.tcu.gov.br/contas-julgadas-irregulares/"
+  },
+
+  "datajud": {
+    "_nota": "API pública nacional do CNJ. A busca documentada é por número de processo ou classe+tribunal; a resposta NÃO traz nome das partes, então não serve para descobrir processos de uma pessoa — serve para detalhar um processo cujo número já se conhece.",
+    "base": "https://api-publica.datajud.cnj.jus.br",
+    "variavel_chave": "CHAVE_DATAJUD",
+    "cabecalho_chave": "Authorization",
+    "prefixo_chave": "APIKey ",
+    "como_obter": "Chave pública divulgada pelo CNJ em https://datajud-wiki.cnj.jus.br/api-publica/acesso/",
+    "endpoint_tribunal": "/api_publica_{tribunal}/_search",
+    "documentacao": "https://datajud-wiki.cnj.jus.br/api-publica/"
+  },
+
+  "camara": {
+    "base": "https://dadosabertos.camara.leg.br/api/v2",
+    "documentacao": "https://dadosabertos.camara.leg.br/swagger/api.html"
+  },
+
+  "senado": {
+    "base": "https://legis.senado.leg.br/dadosabertos",
+    "documentacao": "https://legis.senado.leg.br/dadosabertos/docs/"
+  }
+}

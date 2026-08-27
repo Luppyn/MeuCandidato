@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 import urllib.parse
 
-from . import rede
+from . import navegador, rede
 from ._busca import buscar_perfil, linha_da_tabela, valor_da_coluna
 from .base import Candidato, Coletor as Base, Registro
 
@@ -31,7 +31,7 @@ class Coletor(Base):
         url_pagina = achado[0] if achado else BASE
 
         try:
-            html = rede.buscar(url_pagina)
+            html = navegador.buscar_com_plano_b(url_pagina)
         except rede.ErroDeColeta:
             return []
 

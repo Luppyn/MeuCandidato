@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import urllib.parse
 
-from . import rede
+from . import navegador, rede
 from .base import Candidato, Coletor as Base, Registro
 
 AGENCIAS = [
@@ -35,7 +35,7 @@ class Coletor(Base):
         for nome_agencia, modelo, dominio in AGENCIAS:
             url = modelo.format(nome_url=nome_url)
             try:
-                html = rede.buscar(url)
+                html = navegador.buscar_com_plano_b(url)
             except rede.ErroDeColeta:
                 continue
 

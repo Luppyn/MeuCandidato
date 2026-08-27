@@ -40,7 +40,8 @@ LIMITE_CSV = 20000
 
 # Colunas do candidato que a API pode devolver e por quais e permitido ordenar.
 COLUNAS_CANDIDATO = [
-    "chave", "ano_eleicao", "nr_candidato", "nm_candidato", "nm_urna", "nm_social",
+    "chave", "ano_eleicao", "nr_candidato", "nr_processo", "nm_candidato", "nm_urna",
+    "nm_social",
     "cd_cargo", "ds_cargo", "sg_uf", "sg_ue", "nm_ue", "nr_partido", "sg_partido",
     "nm_partido", "sg_federacao", "nm_federacao", "nm_coligacao", "ds_composicao_coligacao",
     "ds_situacao_candidatura", "ds_detalhe_situacao_cand", "ds_situacao_candidato_tot",
