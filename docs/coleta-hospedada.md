@@ -13,43 +13,99 @@ coisas resolve um problema concreto, explicado logo abaixo.
 > limites vêm da documentação pública das plataformas e **precisam ser
 > confirmados** antes de você fechar com qualquer uma.
 
-## Por que separar coleta de publicação
+## Com proxy residencial próprio: o GitHub Actions basta
 
-O runner do GitHub Actions tem IP de datacenter, compartilhado com o mundo
-inteiro. Vários sites de transparência — e praticamente todo portal de tribunal
-— tratam esse tipo de IP com desconfiança: respondem 403, devolvem página vazia
-ou entregam um desafio. A coleta falha sem erro aparente, o que é pior do que
-falhar com estrondo.
+O runner do GitHub tem IP de datacenter, e é isso — só isso — que faz sites de
+transparência responderem 403 ou devolverem página vazia. Com um proxy
+residencial brasileiro configurado em secret, esse impedimento desaparece, e
+não há mais motivo para manter um serviço externo só para a coleta.
 
-Tirar a coleta de lá resolve isso **se o serviço escolhido tiver IP melhor**.
-Esse é o critério que separa as opções abaixo — não é sobre agendamento, que
-todas fazem, é sobre de onde a requisição sai.
+É o caminho recomendado: menos peças, e o histórico do git continua sendo o
+registro público da coleta.
 
-## O desenho
+### Configurando
+
+Em **Settings → Secrets and variables → Actions → New repository secret**:
+
+| Secret | Valor | Obrigatório |
+| --- | --- | --- |
+| `COLETOR_PROXY` | `http://usuario:senha@host.do.proxy:porta` | para as fontes que bloqueiam datacenter |
+| `CHAVE_PORTAL_TRANSPARENCIA` | chave da API da CGU (gratuita) | para a coluna de sanções |
+| `CHAVE_DATAJUD` | chave pública do CNJ | para a tramitação do registro |
+
+O workflow `.github/workflows/coleta-externa.yml` já lê os três.
+
+### Como saber que o proxy está mesmo valendo
+
+Esta é a parte que costuma passar despercebida: se o proxy for ignorado, tudo
+parece funcionar — quem vê o IP errado é a fonte, não você. Por isso o workflow
+tem um passo que imprime o IP de saída antes de coletar:
+
+```bash
+python3 scripts/coletar.py --verificar-saida
+```
+
+```
+proxy configurado : sim
+proxy             : host.do.proxy:8080
+IP de saida       : 189.x.x.x
+```
+
+Se o IP de saída for um endereço da Azure (os runners do GitHub rodam lá), o
+proxy não está sendo usado. **Usuário e senha nunca são impressos** — só host e
+porta.
+
+### O que o código faz para o proxy não falhar em silêncio
+
+Três cuidados, todos verificados em teste contra um proxy autenticado real:
+
+- **HTTP e HTTPS passam pelo proxy**, inclusive o `CONNECT` do túnel TLS. Senha
+  errada falha; não passa direto.
+- **`no_proxy` é neutralizado quando há proxy configurado.** O `urllib` consulta
+  essa variável mesmo com proxy explícito e, para os domínios listados ali,
+  devolve a requisição direta sem avisar. Se `COLETOR_PROXY` foi definido, foi
+  de propósito, e vale para tudo.
+- **Credenciais são apagadas de qualquer mensagem de erro.** O mascaramento
+  automático do GitHub Actions só cobre o valor exato do secret, e mensagem de
+  erro costuma trazer só um pedaço dele. O código troca `usuario:senha@` por
+  `***:***@` antes de qualquer texto sair.
+
+O navegador também sai pelo proxy. O Chromium não aceita credencial embutida na
+URL — ele ignora e leva 407 —, então usuário e senha vão em campos separados.
+
+### Segurança do workflow
+
+O workflow dispara **só** por agendamento e acionamento manual. Não use
+`pull_request` nem `pull_request_target` nele: em repositório público, isso
+exporia o proxy e as chaves a qualquer pessoa que abrisse um PR.
+
+Pelo mesmo motivo, prefira `secrets` a `variables`, e não imprima o valor do
+proxy em nenhum passo.
+
+## Quando ainda faz sentido um serviço externo
+
+Só em dois casos:
+
+- **Volume acima do limite do Actions.** O plano grátis dá 2.000 minutos/mês em
+  repositório privado, e é ilimitado em repositório público. Uma coleta semanal
+  não chega perto disso.
+- **Você quer o resultado fora do repositório.** Aí vale o desenho abaixo.
+
+Nesse caso, o serviço externo executa o coletor e avisa o GitHub quando termina:
 
 ```
   ┌──────────────────────────┐
-  │  serviço externo         │   agendado (ex.: toda segunda, 4h)
+  │  serviço externo         │   agendado
   │  roda scripts/coletar.py │
   └────────────┬─────────────┘
                │  1. gera JSON no formato de docs/automacao-externa.md
-               │
-               │  2. avisa o GitHub  (POST /repos/{dono}/{repo}/dispatches)
+               │  2. POST /repos/{dono}/{repo}/dispatches
                ▼
   ┌──────────────────────────┐
   │  GitHub Actions          │   3. baixa o resultado
-  │  .github/workflows/      │   4. importa e valida
-  │    publicar.yml          │   5. regenera as páginas estáticas
-  └────────────┬─────────────┘   6. commit
-               ▼
-  ┌──────────────────────────┐
-  │  hospedagem estática     │   qualquer visitante, dados já prontos
+  │  on: repository_dispatch │   4. importa, valida e publica
   └──────────────────────────┘
 ```
-
-O passo 2 é um `repository_dispatch`: a API do GitHub aceita uma chamada
-externa que dispara um workflow e carrega um payload junto. Um token com escopo
-`contents:write` basta.
 
 ```bash
 curl -X POST \
@@ -59,78 +115,19 @@ curl -X POST \
   -d '{"event_type":"coleta-pronta","client_payload":{"execucao":"'"$ID"'"}}'
 ```
 
-O workflow reage com:
+O workflow reage com `on: repository_dispatch: types: [coleta-pronta]` e usa o
+`client_payload` para saber qual execução ler.
 
-```yaml
-on:
-  repository_dispatch:
-    types: [coleta-pronta]
-```
+Entre os serviços, **Apify** é o único feito exatamente para isto: Actor a
+partir do `Dockerfile` do repositório, Schedules para agendar, webhook no fim e
+dataset legível por API — com US$ 5/mês de crédito no plano grátis. Modal, Cloud
+Run Jobs, Render e Oracle Cloud rodam Python e agendam bem, mas nenhum melhora o
+IP em relação ao GitHub, então com proxy próprio não acrescentam nada.
 
-E busca o resultado usando o `client_payload` para saber qual execução ler.
-
-## As opções
-
-| Serviço | IP melhor que o GitHub? | Roda Python | Agenda | Custo | Veredito |
-| --- | --- | --- | --- | --- | --- |
-| **Apify** | **sim** (proxies gerenciados) | sim | sim | US$ 5/mês de crédito grátis | Melhor encaixe |
-| **Runner self-hosted** | **sim** (IP residencial) | sim | sim (cron) | grátis | Melhor se você tem máquina ligada |
-| **Oracle Cloud Always Free** | não (datacenter) | sim | sim (cron) | grátis | Boa VM, não resolve bloqueio |
-| **Modal** | não | sim (nativo) | sim | crédito mensal grátis | Ótimo para Python, mesmo IP ruim |
-| **Google Cloud Run Jobs** | não | sim | sim (Scheduler) | free tier | Idem |
-| **Render Cron Job** | não | sim | sim | a partir de US$ 1/mês | Idem, e pago |
-| **n8n Cloud** | não | não (nós/JS) | sim | plano pago | Só se você já usa n8n |
-
-### Apify — a recomendação
-
-É a única da lista feita exatamente para isto: executar raspagem agendada,
-com proxies gerenciados, guardando o resultado num dataset que se lê por API,
-e disparando webhook quando termina.
-
-O encaixe com este projeto:
-
-- O coletor vira um **Actor** (um container com `scripts/coletar.py` dentro);
-  o `Dockerfile` do repositório já serve de base.
-- **Schedules** cuidam do agendamento.
-- Ao terminar, um **webhook** chama o `repository_dispatch` do passo 2.
-- O workflow lê o resultado em
-  `https://api.apify.com/v2/datasets/{id}/items?format=json`.
-
-Os US$ 5/mês de crédito do plano grátis cobrem folgadamente uma coleta semanal
-de alguns milhares de candidatos. O que consome crédito de verdade é proxy
-residencial — use só nas fontes que realmente exigirem.
-
-### Runner self-hosted — a alternativa grátis
-
-Se você tem uma máquina que fica ligada (um PC velho, um Raspberry Pi, um
-mini-PC), registre-a como runner do GitHub Actions. O workflow de coleta roda
-nela, com IP residencial, e o de publicação continua no runner do GitHub.
-
-```yaml
-jobs:
-  coletar:
-    runs-on: self-hosted     # sua máquina, seu IP
-  publicar:
-    needs: coletar
-    runs-on: ubuntu-latest   # runner do GitHub
-```
-
-Custo zero, IP residencial de verdade, integração nativa — sem
-`repository_dispatch`, sem token extra, sem serviço terceiro. Em troca: a
-máquina precisa estar ligada na hora, e um runner self-hosted em repositório
-**público** exige cuidado, porque qualquer pull request poderia executar código
-nela. Use `pull_request` desabilitado para esse job, ou mantenha o runner num
-repositório privado que publica no público.
-
-### As demais
-
-Modal, Cloud Run Jobs, Render e Oracle rodam Python e agendam bem. Nenhuma
-melhora o IP em relação ao GitHub, então só valem a pena se o problema não for
-bloqueio — por exemplo, se você precisar de mais tempo de execução do que os
-limites do Actions, ou quiser manter a coleta separada por outro motivo.
-
-Se for esse o caso, prefira a mais simples: mantenha a coleta no próprio
-GitHub Actions e economize um serviço.
+Um **runner self-hosted** (um PC velho registrado no repositório) é a única
+alternativa que dispensa proxy, porque já sai por IP residencial. Em repositório
+público exige cuidado: desabilite `pull_request` para o job, senão qualquer PR
+executaria código na sua máquina.
 
 ## O que já está pronto no repositório
 

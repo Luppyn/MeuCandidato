@@ -31,6 +31,7 @@ import json
 import os
 import pathlib
 import random
+import re
 import time
 import urllib.error
 import urllib.parse
@@ -53,8 +54,24 @@ VALIDADE_CACHE = int(os.environ.get("COLETOR_CACHE_HORAS", "72")) * 3600
 _ultimo_acesso: dict[str, float] = {}
 
 
+def esconder_credenciais(texto: str) -> str:
+    """Troca usuario:senha de qualquer URL por ***.
+
+    O proxy residencial chega como http://usuario:senha@host:porta. Essa
+    string nao pode vazar em log nem em mensagem de erro - inclusive porque o
+    mascaramento automatico do GitHub Actions só cobre o valor exato do
+    secret, e uma mensagem de erro costuma trazer só um pedaço dele.
+    """
+    # Guloso ate o ULTIMO @ antes do caminho: senha com @ dentro (comum, e
+    # raramente percent-encoded) tambem precisa ser coberta.
+    return re.sub(r"://[^/\s]+@", "://***:***@", str(texto))
+
+
 class ErroDeColeta(Exception):
     """A fonte nao respondeu, mudou de formato ou bloqueou a requisicao."""
+
+    def __init__(self, mensagem):
+        super().__init__(esconder_credenciais(mensagem))
 
 
 # ---------------------------------------------------------------------------
@@ -94,13 +111,38 @@ def _esperar_a_vez(url: str) -> None:
     _ultimo_acesso[dominio] = time.time()
 
 
+_bypass_limpo = False
+
+
+def _garantir_proxy_valendo() -> None:
+    """Remove `no_proxy` do ambiente quando há proxy configurado.
+
+    O urllib consulta `no_proxy` mesmo quando o proxy é passado explicitamente:
+    para os domínios listados ali, ele devolve a requisição direta, em
+    silêncio. Numa coleta que depende de sair por IP residencial, isso é o pior
+    tipo de falha - tudo parece funcionar, e a fonte é quem vê o IP errado.
+
+    Se COLETOR_PROXY foi definido, foi de propósito. O desvio sai da frente.
+    """
+    global _bypass_limpo
+    if _bypass_limpo or not os.environ.get("COLETOR_PROXY"):
+        return
+    removidos = [v for v in ("no_proxy", "NO_PROXY") if os.environ.pop(v, None)]
+    if removidos:
+        print(f"  rede: {' e '.join(removidos)} ignorado(s) — COLETOR_PROXY vale "
+              f"para todos os domínios.")
+    _bypass_limpo = True
+
+
 def _abridor() -> urllib.request.OpenerDirector:
     proxy = os.environ.get("COLETOR_PROXY")
-    if proxy:
-        return urllib.request.build_opener(
-            urllib.request.ProxyHandler({"http": proxy, "https": proxy})
-        )
-    return urllib.request.build_opener()
+    if not proxy:
+        return urllib.request.build_opener()
+
+    _garantir_proxy_valendo()
+    return urllib.request.build_opener(
+        urllib.request.ProxyHandler({"http": proxy, "https": proxy})
+    )
 
 
 def _via_desbloqueador(url: str) -> str | None:
@@ -291,6 +333,44 @@ def tabelas_de(html: str) -> list[list[list[str]]]:
     leitor = _Tabelas()
     leitor.feed(html)
     return leitor.tabelas
+
+
+SERVICOS_DE_IP = (
+    "https://api.ipify.org?format=json",
+    "https://ifconfig.co/json",
+)
+
+
+def verificar_saida() -> dict:
+    """Diz por qual IP a coleta está saindo. Não imprime credencial nenhuma.
+
+    Serve para confirmar, no log do GitHub Actions, que a coleta realmente
+    passou pelo proxy residencial - sem o que a única forma de descobrir seria
+    a fonte bloquear.
+    """
+    proxy = os.environ.get("COLETOR_PROXY")
+    resultado = {
+        "proxy_configurado": bool(proxy),
+        "proxy_host": None,
+        "ip_de_saida": None,
+        "erro": None,
+    }
+    if proxy:
+        partes = urllib.parse.urlsplit(proxy)
+        # Só host e porta: usuário e senha ficam de fora de propósito.
+        resultado["proxy_host"] = f"{partes.hostname}:{partes.port or ''}".rstrip(":")
+
+    for servico in SERVICOS_DE_IP:
+        try:
+            dados = json.loads(buscar(servico, usar_cache=False))
+        except (ErroDeColeta, json.JSONDecodeError):
+            continue
+        resultado["ip_de_saida"] = dados.get("ip")
+        if resultado["ip_de_saida"]:
+            return resultado
+
+    resultado["erro"] = "nenhum serviço de eco de IP respondeu"
+    return resultado
 
 
 def limpar_cache() -> int:

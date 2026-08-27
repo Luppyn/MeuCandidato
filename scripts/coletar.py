@@ -94,6 +94,9 @@ def listar(coletores) -> None:
 def main() -> int:
     p = argparse.ArgumentParser(description="Coleta dados das fontes sem API oficial.")
     p.add_argument("--listar", action="store_true", help="mostra as fontes disponiveis e sai")
+    p.add_argument("--verificar-saida", action="store_true",
+                   help="mostra por qual IP a coleta esta saindo e sai "
+                        "(confirma que o proxy esta valendo)")
     p.add_argument("--fonte", action="append", default=[],
                    help="slug da fonte a coletar (pode repetir; padrao: todas as automaticas)")
     p.add_argument("--pendencias", action="store_true",
@@ -118,6 +121,22 @@ def main() -> int:
 
     if args.listar:
         listar(coletores)
+        return 0
+
+    if args.verificar_saida:
+        from coletores import rede
+        situacao = rede.verificar_saida()
+        print(f"proxy configurado : {'sim' if situacao['proxy_configurado'] else 'nao'}")
+        if situacao["proxy_host"]:
+            # Só host e porta: usuário e senha nunca são impressos.
+            print(f"proxy             : {situacao['proxy_host']}")
+        print(f"IP de saida       : {situacao['ip_de_saida'] or '(nao identificado)'}")
+        if situacao["erro"]:
+            print(f"aviso             : {situacao['erro']}")
+        if situacao["proxy_configurado"] and not situacao["ip_de_saida"]:
+            print("\nO proxy esta configurado mas o IP de saida nao pode ser confirmado. "
+                  "Rode de novo antes de confiar numa coleta longa.")
+            return 1
         return 0
 
     if not (args.cargo and args.uf):
@@ -167,6 +186,11 @@ def main() -> int:
             print(f"  pulando {slug} — a coluna fica sem dado, com link para a fonte.\n")
             codigo_saida = max(codigo_saida, 2)
             continue
+
+        try:
+            coletor.preparar(candidatos)
+        except Exception:  # noqa: BLE001 - preparação falha não derruba as outras fontes
+            traceback.print_exc(limit=1)
 
         registros: list[dict] = []
         falhas = 0

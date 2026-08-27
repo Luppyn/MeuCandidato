@@ -23,6 +23,7 @@ isso em massa em site do Judiciário não é o que este projeto faz.
 from __future__ import annotations
 
 import os
+import urllib.parse
 
 from .rede import AGENTE, ErroDeColeta
 
@@ -58,10 +59,29 @@ def _abrir():
         argumentos["executable_path"] = executavel
     proxy = os.environ.get("COLETOR_PROXY")
     if proxy:
-        argumentos["proxy"] = {"server": proxy}
+        argumentos["proxy"] = _proxy_para_playwright(proxy)
 
     _navegador = _playwright.chromium.launch(**argumentos)
     return _navegador
+
+
+def _proxy_para_playwright(proxy: str) -> dict:
+    """Separa usuário e senha da URL do proxy.
+
+    O Chromium não aceita credencial embutida em `http://usuario:senha@host` —
+    ele ignora e leva 407. O Playwright quer os três campos separados.
+    """
+    partes = urllib.parse.urlsplit(proxy)
+    servidor = f"{partes.scheme}://{partes.hostname}"
+    if partes.port:
+        servidor += f":{partes.port}"
+
+    configuracao = {"server": servidor}
+    if partes.username:
+        configuracao["username"] = urllib.parse.unquote(partes.username)
+    if partes.password:
+        configuracao["password"] = urllib.parse.unquote(partes.password)
+    return configuracao
 
 
 def fechar() -> None:

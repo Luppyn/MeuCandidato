@@ -51,6 +51,9 @@ class Coletor(Base):
         self._falharam: list[str] = []
 
     # -- carga única -------------------------------------------------------
+    def preparar(self, candidatos) -> None:
+        self.indice()
+
     def indice(self) -> dict[str, list[tuple[str, str, dict]]]:
         """Baixa as listas e indexa por primeiro+último nome.
 

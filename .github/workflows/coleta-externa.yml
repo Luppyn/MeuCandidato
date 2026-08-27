@@ -1,23 +1,26 @@
 # Coleta agendada das fontes sem API oficial.
 #
-# Alternativa a manter um servico de automacao rodando: o GitHub executa os
-# coletores no horario marcado e comita o resultado em dados/externo/. Quem
-# hospeda o site so precisa dar um `git pull` e rodar o importador - ou deixar
-# o proprio deploy fazer isso.
+# Roda no próprio GitHub Actions, saindo pelo proxy residencial configurado em
+# secrets. Sem o proxy o workflow ainda roda, mas várias fontes respondem 403
+# ou devolvem página vazia para IP de datacenter — que é o IP dos runners.
 #
-# Colocar o resultado no repositorio tem uma vantagem alem da comodidade: o
-# historico do git passa a ser o registro publico da coleta. Da para ver, commit
-# a commit, o que cada fonte devolveu e quando - inclusive quando um valor mudou.
+# O resultado é comitado em dados/externo/, o que faz do histórico do git o
+# registro público da coleta: dá para ver, commit a commit, o que cada fonte
+# devolveu e quando um valor mudou.
+#
+# SEGURANÇA: este workflow dispara apenas por agendamento e por acionamento
+# manual. Não use `pull_request` nem `pull_request_target` aqui — em repositório
+# público, isso exporia os secrets a qualquer pessoa que abrisse um PR.
 
 name: Coleta externa
 
 on:
   schedule:
-    - cron: "0 7 * * 1"   # segundas, 7h UTC (4h em Brasilia)
+    - cron: "0 7 * * 1"   # segundas, 7h UTC (4h em Brasília)
   workflow_dispatch:
     inputs:
       cargo:
-        description: "Codigo do cargo no TSE (1 presidente, 3 governador, 5 senador, 6 dep. federal, 7 dep. estadual)"
+        description: "Código do cargo no TSE (1 presidente, 3 governador, 5 senador, 6 dep. federal, 7 dep. estadual)"
         required: true
         default: "6"
       uf:
@@ -25,9 +28,13 @@ on:
         required: true
         default: "SP"
       fontes:
-        description: "Fontes a coletar, separadas por espaco (vazio = todas as automaticas)"
+        description: "Fontes a coletar, separadas por espaço (vazio = todas as automáticas)"
         required: false
-        default: "congresso noticias"
+        default: ""
+      navegador:
+        description: "Instalar o navegador para as fontes que exigem renderização"
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -39,7 +46,16 @@ concurrency:
 jobs:
   coletar:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
+
+    env:
+      # Proxy residencial: sem ele, boa parte das fontes recusa o IP do runner.
+      COLETOR_PROXY: ${{ secrets.COLETOR_PROXY }}
+      # Chaves gratuitas das APIs oficiais.
+      CHAVE_PORTAL_TRANSPARENCIA: ${{ secrets.CHAVE_PORTAL_TRANSPARENCIA }}
+      CHAVE_DATAJUD: ${{ secrets.CHAVE_DATAJUD }}
+      # Ritmo: melhor sobrar do que apanhar de rate limit.
+      COLETOR_INTERVALO: "2.5"
 
     steps:
       - uses: actions/checkout@v4
@@ -48,31 +64,37 @@ jobs:
         with:
           python-version: "3.11"
 
-      # Os coletores nao usam biblioteca externa: nada para instalar.
+      - name: Instalar o navegador
+        if: inputs.navegador != false
+        run: |
+          pip install playwright
+          playwright install --with-deps chromium
+
+      - name: Confirmar por qual IP a coleta vai sair
+        run: |
+          if [ -z "$COLETOR_PROXY" ]; then
+            echo "::warning::COLETOR_PROXY não está definido. A coleta vai sair pelo IP"
+            echo "::warning::do runner, que várias fontes recusam. Configure o secret."
+          fi
+          # Imprime host e IP de saída; nunca usuário e senha.
+          python3 scripts/coletar.py --verificar-saida
 
       - name: Montar a base do TSE
         run: python3 scripts/importar_tse.py --baixar --ano 2026
 
       - name: Coletar
-        env:
-          # Opcionais: so precisam existir se alguma fonte exigir desbloqueio.
-          COLETOR_PROXY: ${{ secrets.COLETOR_PROXY }}
-          COLETOR_UNLOCKER_URL: ${{ secrets.COLETOR_UNLOCKER_URL }}
-          COLETOR_UNLOCKER_TOKEN: ${{ secrets.COLETOR_UNLOCKER_TOKEN }}
-          COLETOR_UNLOCKER_ZONA: ${{ secrets.COLETOR_UNLOCKER_ZONA }}
-          COLETOR_INTERVALO: "2.5"
         run: |
           cargo="${{ inputs.cargo || '6' }}"
           uf="${{ inputs.uf || 'SP' }}"
-          fontes="${{ inputs.fontes || 'congresso noticias' }}"
+          fontes="${{ inputs.fontes }}"
 
           argumentos=""
           for fonte in $fontes; do
             argumentos="$argumentos --fonte $fonte"
           done
 
-          # Codigo 2 significa "rodou, mas nenhuma fonte devolveu registro":
-          # nao e falha do fluxo, e informacao para o passo seguinte.
+          # Código 2 significa "rodou, mas nenhuma fonte devolveu registro":
+          # não é falha do fluxo, é informação para o passo seguinte.
           python3 scripts/coletar.py $argumentos --cargo "$cargo" --uf "$uf" \
             --ano 2026 --somente-deferidos || [ $? -eq 2 ]
 
@@ -84,7 +106,7 @@ jobs:
             echo "mudou=sim" >> "$GITHUB_OUTPUT"
           else
             echo "mudou=nao" >> "$GITHUB_OUTPUT"
-            echo "Nenhuma mudanca nos dados coletados."
+            echo "Nenhuma mudança nos dados coletados."
           fi
 
       - name: Publicar o resultado

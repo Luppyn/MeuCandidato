@@ -69,6 +69,24 @@ export CHAVE_DATAJUD="..."                # chave pública divulgada pelo CNJ
 Sem a chave, o coletor correspondente avisa como obtê-la e devolve vazio — não
 inventa valor.
 
+### Proxy
+
+Várias fontes recusam requisição vinda de IP de datacenter. Um proxy residencial
+resolve, e vale para o HTTP e para o navegador:
+
+```bash
+export COLETOR_PROXY="http://usuario:senha@host:porta"
+python3 scripts/coletar.py --verificar-saida    # confirma o IP de saída
+```
+
+Quando `COLETOR_PROXY` está definido, a variável `no_proxy` do ambiente é
+ignorada de propósito: o `urllib` a consulta mesmo com proxy explícito e
+devolveria a requisição direta em silêncio, o que faria a coleta sair pelo IP
+errado sem nenhum aviso.
+
+Usuário e senha são apagados de qualquer mensagem de erro antes de ela ser
+impressa.
+
 ### Navegador (opcional)
 
 Algumas páginas renderizam por JavaScript ou recusam requisição de IP de
