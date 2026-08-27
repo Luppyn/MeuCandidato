@@ -60,7 +60,7 @@ def candidatos_da_base(con, args) -> list[Candidato]:
 
     where = " AND ".join(condicoes) if condicoes else "1 = 1"
     sql = (f"SELECT chave, nm_candidato, nm_urna, sg_uf, ds_cargo, sg_partido, "
-           f"ano_eleicao, dt_nascimento FROM candidato WHERE {where} "
+           f"ano_eleicao, dt_nascimento, nr_processo FROM candidato WHERE {where} "
            f"ORDER BY nm_candidato")
     if args.limite:
         sql += f" LIMIT {int(args.limite)}"
@@ -159,6 +159,13 @@ def main() -> int:
         coletor = coletores[slug]
         if not coletor.automatico:
             print(f"{slug}: exige conferencia manual, use --pendencias. Ignorando.")
+            continue
+
+        pendencia = coletor.aviso_inicial()
+        if pendencia:
+            print(f"{slug}: {pendencia}")
+            print(f"  pulando {slug} — a coluna fica sem dado, com link para a fonte.\n")
+            codigo_saida = max(codigo_saida, 2)
             continue
 
         registros: list[dict] = []

@@ -2,6 +2,36 @@
   "_leia_me": "Registro publico das fontes usadas pelo MeuCandidato. 'tem_api' indica se existe interface programatica oficial e documentada. 'url_consulta_manual' e um modelo com marcadores {nome}, {nome_url}, {uf}, {cargo}, {ano} usados para montar o link de conferencia manual exibido na planilha quando nao ha dado coletado.",
   "fontes": [
     {
+      "slug": "tcu",
+      "nome": "TCU — Contas julgadas irregulares (Cadirreg)",
+      "url": "https://sites.tcu.gov.br/dados-abertos/inidoneos-irregulares",
+      "categoria": "Judicial",
+      "tem_api": 1,
+      "licenca": "Dados abertos do TCU",
+      "descricao": "Lista aberta de responsáveis com contas julgadas irregulares, incluindo o recorte com possível implicação eleitoral — a mesma que o TCU entrega ao TSE por força da Lei da Ficha Limpa. Arquivo em massa, sem captcha e sem chave.",
+      "url_consulta_manual": "https://sites.tcu.gov.br/contas-julgadas-irregulares/"
+    },
+    {
+      "slug": "transparencia",
+      "nome": "Portal da Transparência — sanções (CGU)",
+      "url": "https://portaldatransparencia.gov.br/sancoes",
+      "categoria": "Judicial",
+      "tem_api": 1,
+      "licenca": "Dados abertos do governo federal",
+      "descricao": "API oficial da CGU cobrindo CEAF (expulsões da administração federal), CEIS, CNEP e acordos de leniência, com pessoa física incluída. Chave gratuita. Cobre apenas a esfera federal.",
+      "url_consulta_manual": "https://portaldatransparencia.gov.br/sancoes/consulta?cadastro=1&nomeSancionado={nome_url}"
+    },
+    {
+      "slug": "datajud",
+      "nome": "CNJ — DataJud",
+      "url": "https://www.cnj.jus.br/sistemas/datajud/",
+      "categoria": "Judicial",
+      "tem_api": 1,
+      "licenca": "API pública do CNJ",
+      "descricao": "Base Nacional de Dados do Poder Judiciário. Não permite buscar processos pelo nome de uma pessoa — a consulta é por número. Aqui é usada para acompanhar a tramitação do processo de registro da própria candidatura.",
+      "url_consulta_manual": "https://www.cnj.jus.br/sistemas/datajud/"
+    },
+    {
       "slug": "tse_cand",
       "nome": "TSE — DivulgaCandContas / Dados Abertos",
       "url": "https://dadosabertos.tse.jus.br/dataset/candidatos-2026",
@@ -28,7 +58,7 @@
       "categoria": "Judicial",
       "tem_api": 0,
       "licenca": "Consulta publica",
-      "descricao": "Condenações definitivas por improbidade administrativa e atos que geram inelegibilidade. A consulta pública exige captcha a cada busca, então não há coleta automática confiável: o site oferece o link direto e aceita o resultado preenchido por fora.",
+      "descricao": "Condenações definitivas por improbidade administrativa e atos que geram inelegibilidade. A consulta pública exige captcha a cada busca e não há download em massa. Boa parte do que ela mostraria sobre inelegibilidade está coberta, sem captcha, pela lista aberta do TCU.",
       "url_consulta_manual": "https://www.cnj.jus.br/improbidade_adm/consultar_requerido.php"
     },
     {
@@ -38,7 +68,7 @@
       "categoria": "Judicial",
       "tem_api": 0,
       "licenca": "Consulta publica",
-      "descricao": "Banco Nacional de Mandados de Prisão. Consulta pública com captcha; entra na planilha como link de conferência manual.",
+      "descricao": "Banco Nacional de Mandados de Prisão. Portal com captcha, sem API e sem fonte alternativa equivalente: mandados em aberto só existem ali. Entra na planilha como link de conferência manual.",
       "url_consulta_manual": "https://portalbnmp.cnj.jus.br/"
     },
     {
@@ -58,7 +88,7 @@
       "categoria": "Judicial",
       "tem_api": 0,
       "licenca": "Consulta processual pública",
-      "descricao": "Consulta processual por nome, tribunal a tribunal. Não existe API nacional unificada; cada tribunal tem seu próprio sistema e suas próprias regras de acesso.",
+      "descricao": "Consulta processual por nome, tribunal a tribunal. A API nacional do CNJ (DataJud) existe, mas não permite busca por nome de parte, então não substitui esta consulta. Cada portal tem suas próprias regras de acesso.",
       "url_consulta_manual": "https://www.cnj.jus.br/poder-judiciario/tribunais/"
     },
     {

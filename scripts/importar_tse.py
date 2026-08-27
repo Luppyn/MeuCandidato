@@ -46,6 +46,7 @@ DE_PARA_CANDIDATO = {
     "nr_turno": "NR_TURNO",
     "sq_candidato": "SQ_CANDIDATO",
     "nr_candidato": "NR_CANDIDATO",
+    "nr_processo": "NR_PROCESSO",
     "nm_candidato": "NM_CANDIDATO",
     "nm_urna": "NM_URNA_CANDIDATO",
     "nm_social": "NM_SOCIAL_CANDIDATO",

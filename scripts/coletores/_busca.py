@@ -12,7 +12,7 @@ from __future__ import annotations
 import re
 import urllib.parse
 
-from . import rede
+from . import navegador, rede
 from .base import Candidato, parece_o_mesmo
 
 
@@ -21,7 +21,10 @@ def buscar_perfil(url_busca: str, candidato: Candidato, *,
                   filtro_href: str | None = None) -> tuple[str, str] | None:
     """Abre uma pagina de busca e devolve (url, rotulo) do link do candidato."""
     try:
-        html = rede.buscar(url_busca, desbloquear=desbloquear)
+        # HTTP primeiro; navegador só se a resposta vier vazia ou bloqueada.
+        html = (navegador.buscar_com_plano_b(url_busca)
+                if not desbloquear
+                else rede.buscar(url_busca, desbloquear=True))
     except rede.ErroDeColeta:
         return None
 

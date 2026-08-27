@@ -301,8 +301,9 @@ function celulaExterna(coluna, candidato) {
     const td = criar('td', { title: item.observacao || '' }, conteudo);
     // O destaque marca fato conclusivo, nao qualquer mencao. Processo em
     // andamento nao e condenacao, e a planilha nao deve sugerir que seja.
-    const conclusivo = /conden|ineleg|rejeitad|mandado de pris/i;
-    if (conclusivo.test(item.valor) && !/^0\b|nada consta|nenhum/i.test(item.valor)) {
+    const conclusivo = /conden|ineleg|rejeitad|mandado de pris|implicaç[ãa]o eleitoral|^consta\b|sanç(ão|ões)/i;
+    const negativo = /^0\b|nada consta|nada encontrado|nenhum(a)? /i;
+    if (conclusivo.test(item.valor) && !negativo.test(item.valor)) {
       conteudo.className = 'marca atencao';
     }
     return td;

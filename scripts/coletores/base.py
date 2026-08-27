@@ -23,6 +23,7 @@ class Candidato:
     partido: str = ""
     ano: int = 0
     nascimento: str = ""
+    processo: str = ""
 
     @classmethod
     def de_linha(cls, linha) -> "Candidato":
@@ -35,7 +36,16 @@ class Candidato:
             partido=linha["sg_partido"] or "",
             ano=linha["ano_eleicao"] or 0,
             nascimento=linha["dt_nascimento"] or "",
+            processo=cls._campo(linha, "nr_processo"),
         )
+
+    @staticmethod
+    def _campo(linha, nome: str) -> str:
+        """Lê uma coluna que pode não existir em bases antigas."""
+        try:
+            return linha[nome] or ""
+        except (IndexError, KeyError):
+            return ""
 
 
 @dataclasses.dataclass
@@ -75,6 +85,14 @@ class Coletor:
 
     def coletar(self, candidato: Candidato) -> list[Registro]:
         raise NotImplementedError
+
+    def aviso_inicial(self) -> str | None:
+        """Pendência que impede a coleta — chave ausente, arquivo fora do ar.
+
+        Anunciada antes do laço, para não ser sobrescrita pela linha de
+        progresso, que se reescreve sobre si mesma.
+        """
+        return getattr(self, "aviso", None)
 
     # -- utilitarios -------------------------------------------------------
     def registro(self, candidato: Candidato, campo: str, valor: str, **extra) -> Registro:

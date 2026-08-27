@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import urllib.parse
 
-from . import rede
+from . import navegador, rede
 from ._busca import buscar_perfil, numero_perto_de
 from .base import Candidato, Coletor as Base, Registro
 
@@ -30,7 +30,7 @@ class Coletor(Base):
         url_perfil, _ = achado
 
         try:
-            texto = rede.texto_de(rede.buscar(url_perfil))
+            texto = rede.texto_de(navegador.buscar_com_plano_b(url_perfil))
         except rede.ErroDeColeta:
             return []
 
