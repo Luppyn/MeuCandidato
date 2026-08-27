@@ -1,11 +1,51 @@
 {
-  "_leia_me": "Modelos de URL do TSE, isolados do codigo porque o TSE muda esses enderecos entre eleicoes. O download tenta primeiro descobrir os arquivos pela API do portal de dados abertos (api_dataset_tse) e so entao usa os modelos fixos de download_tse. Se um download falhar, corrija aqui - nao no codigo. Marcadores: {ano}, {uf}, {sq_candidato}, {cd_eleicao}, {sg_ue}.",
+  "_leia_me": "Modelos de URL do TSE. O download tenta primeiro descobrir os arquivos pela API do portal de dados abertos (api_dataset_tse) e so entao usa os modelos fixos de download_tse.\n\nIMPORTANTE - o campo 'verificado': modelo com verificado=false NAO e usado para montar link. Isso existe porque um link errado e pior que link nenhum: manda o leitor para um 404 e parece que a informacao nao existe. Enquanto o modelo nao for conferido contra o site real, a planilha aponta para a busca do portal e diz que a conferencia e manual. Depois de conferir, corrija o modelo e vire verificado para true.",
   "download_tse": {
     "consulta_cand": "https://cdn.tse.jus.br/estatistica/sead/odsele/consulta_cand/consulta_cand_{ano}.zip",
     "bem_candidato": "https://cdn.tse.jus.br/estatistica/sead/odsele/bem_candidato/bem_candidato_{ano}.zip"
   },
-  "perfil_candidato": "https://divulgacandcontas.tse.jus.br/divulga/#/candidato/{ano}/{cd_eleicao}/{sg_ue}/{sq_candidato}",
-  "foto_candidato": "https://divulgacandcontas.tse.jus.br/divulga/rest/arquivo/img/{cd_eleicao}/{sq_candidato}",
+  "perfil_candidato": {
+    "verificado": false,
+    "modelo": "https://divulgacandcontas.tse.jus.br/divulga/#/candidato/{regiao}/{sg_uf}/{cd_eleicao_divulga}/{sq_candidato}/{ano}/{sg_ue}",
+    "_exemplo_real": "https://divulgacandcontas.tse.jus.br/divulga/#/candidato/SUDESTE/MG/20322002026/130002543682/2026/MG",
+    "_pendente": "O segmento 'cd_eleicao_divulga' (20322002026 no exemplo) nao vem do CSV do TSE - o CD_ELEICAO do CSV para essa eleicao e 6259, que devolve 404. Falta descobrir de onde sai esse numero e se ele varia por UF ou por cargo.",
+    "busca": "https://divulgacandcontas.tse.jus.br/divulga/#/"
+  },
+  "foto_candidato": {
+    "verificado": false,
+    "modelo": "https://divulgacandcontas.tse.jus.br/divulga/rest/arquivo/img/{cd_eleicao}/{sq_candidato}",
+    "_pendente": "Nunca conferido contra o site real. Sem confirmacao, a foto nao e exibida."
+  },
   "dataset_tse": "https://dadosabertos.tse.jus.br/dataset/candidatos-{ano}",
-  "api_dataset_tse": "https://dadosabertos.tse.jus.br/api/3/action/package_show?id=candidatos-{ano}"
+  "api_dataset_tse": "https://dadosabertos.tse.jus.br/api/3/action/package_show?id=candidatos-{ano}",
+  "regioes": {
+    "_leia_me": "Macrorregiao por UF, usada no primeiro segmento da rota do DivulgaCandContas. Nao conferido para candidatura nacional (presidente).",
+    "AC": "NORTE",
+    "AP": "NORTE",
+    "AM": "NORTE",
+    "PA": "NORTE",
+    "RO": "NORTE",
+    "RR": "NORTE",
+    "TO": "NORTE",
+    "AL": "NORDESTE",
+    "BA": "NORDESTE",
+    "CE": "NORDESTE",
+    "MA": "NORDESTE",
+    "PB": "NORDESTE",
+    "PE": "NORDESTE",
+    "PI": "NORDESTE",
+    "RN": "NORDESTE",
+    "SE": "NORDESTE",
+    "DF": "CENTRO-OESTE",
+    "GO": "CENTRO-OESTE",
+    "MT": "CENTRO-OESTE",
+    "MS": "CENTRO-OESTE",
+    "ES": "SUDESTE",
+    "MG": "SUDESTE",
+    "RJ": "SUDESTE",
+    "SP": "SUDESTE",
+    "PR": "SUL",
+    "RS": "SUL",
+    "SC": "SUL"
+  }
 }

@@ -160,20 +160,43 @@ def linhas_do_csv(dados: bytes):
 # ----------------------------------------------------------------------------
 
 def montar_urls(linha: dict) -> tuple[str | None, str | None]:
+    """Monta o link do perfil e o da foto no DivulgaCandContas.
+
+    Um modelo só é usado quando `verificado` é true em config/links.json. Link
+    errado é pior que link nenhum: leva o leitor a um 404 e passa a impressão de
+    que a informação não existe. Enquanto o modelo não for conferido contra o
+    site real, a planilha aponta para a busca do portal.
+    """
+    sq_candidato = limpar(linha.get("SQ_CANDIDATO")) or ""
+    if not sq_candidato:
+        return None, None
+
+    sg_uf = (limpar(linha.get("SG_UF")) or "").upper()
     dados = {
         "ano": limpar(linha.get("ANO_ELEICAO")) or "",
         "cd_eleicao": limpar(linha.get("CD_ELEICAO")) or "",
         "sg_ue": limpar(linha.get("SG_UE")) or "",
-        "sq_candidato": limpar(linha.get("SQ_CANDIDATO")) or "",
+        "sg_uf": sg_uf,
+        "sq_candidato": sq_candidato,
+        "regiao": (CONFIG_LINKS.get("regioes") or {}).get(sg_uf, ""),
     }
-    if not dados["sq_candidato"]:
-        return None, None
-    try:
-        perfil = CONFIG_LINKS["perfil_candidato"].format(**dados)
-        foto = CONFIG_LINKS["foto_candidato"].format(**dados)
-    except KeyError:
-        return None, None
-    return perfil, foto
+
+    def montar(chave: str) -> str | None:
+        config = CONFIG_LINKS.get(chave)
+        if not isinstance(config, dict) or not config.get("verificado"):
+            return None
+        try:
+            return config["modelo"].format(**dados)
+        except (KeyError, IndexError):
+            return None
+
+    perfil = montar("perfil_candidato")
+    if not perfil:
+        # Sem modelo conferido, o link leva à busca do portal, e a interface
+        # avisa que dali em diante a conferência é manual.
+        perfil = (CONFIG_LINKS.get("perfil_candidato") or {}).get("busca")
+
+    return perfil, montar("foto_candidato")
 
 
 def importar_candidatos(con, nome_arquivo, dados, importacao_id, anos_aceitos=None):
