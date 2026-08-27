@@ -325,22 +325,146 @@ def registrar_fontes(con) -> None:
 # Download opcional
 # ----------------------------------------------------------------------------
 
+def urls_publicadas(ano: int) -> dict[str, list[str]]:
+    """Descobre as URLs dos arquivos no portal de dados abertos do TSE.
+
+    O portal roda CKAN, que expõe `package_show`. Perguntar a ele qual é o
+    arquivo é mais robusto do que fixar o endereço do CDN no código: quando o
+    TSE muda o caminho — e ele muda entre eleições — a descoberta acompanha.
+
+    Devolve {tipo: [urls candidatas]}, sempre com os modelos de
+    config/links.json ao final, como reserva.
+    """
+    from coletores import rede
+
+    candidatas: dict[str, list[str]] = {
+        nome: [] for nome in CONFIG_LINKS["download_tse"]
+    }
+
+    api = CONFIG_LINKS.get("api_dataset_tse")
+    if api:
+        try:
+            resposta = rede.buscar_json(api.format(ano=ano), usar_cache=False)
+            recursos = ((resposta.get("result") or {}).get("resources") or [])
+            for recurso in recursos:
+                url = (recurso.get("url") or "").strip()
+                if not url.lower().endswith(".zip"):
+                    continue
+                alvo = url.rsplit("/", 1)[-1].lower()
+                for nome in candidatas:
+                    if nome in alvo and str(ano) in alvo:
+                        candidatas[nome].append(url)
+            achou = sum(len(v) for v in candidatas.values())
+            print(f"portal de dados abertos: {achou} arquivo(s) localizado(s)")
+        except Exception as erro:  # noqa: BLE001 - a reserva cobre qualquer falha
+            print(f"portal de dados abertos não respondeu ({erro}); "
+                  f"usando os endereços de config/links.json")
+
+    for nome, modelo in CONFIG_LINKS["download_tse"].items():
+        fixa = modelo.format(ano=ano)
+        if fixa not in candidatas[nome]:
+            candidatas[nome].append(fixa)
+    return candidatas
+
+
 def baixar(ano: int, destino: pathlib.Path) -> list[pathlib.Path]:
-    import urllib.request
+    """Baixa os arquivos do TSE, tentando cada endereço candidato."""
+    from coletores import rede
 
     destino.mkdir(parents=True, exist_ok=True)
-    baixados = []
-    for nome, modelo in CONFIG_LINKS["download_tse"].items():
-        url = modelo.format(ano=ano)
+    baixados: list[pathlib.Path] = []
+    falhas: list[str] = []
+
+    for nome, urls in urls_publicadas(ano).items():
         arquivo = destino / f"{nome}_{ano}.zip"
-        print(f"baixando {url}")
-        req = urllib.request.Request(url, headers={"User-Agent": "MeuCandidato/1.0"})
-        with urllib.request.urlopen(req, timeout=300) as resposta, arquivo.open("wb") as saida:
-            while bloco := resposta.read(1024 * 256):
-                saida.write(bloco)
-        print(f"  -> {arquivo} ({arquivo.stat().st_size / 1_000_000:.1f} MB)")
-        baixados.append(arquivo)
+        if arquivo.exists() and arquivo.stat().st_size > 0:
+            print(f"{arquivo.name} já existe ({arquivo.stat().st_size / 1_000_000:.1f} MB)")
+            baixados.append(arquivo)
+            continue
+
+        for url in urls:
+            print(f"baixando {url}")
+            try:
+                tamanho = rede.baixar_arquivo(url, arquivo, rotular=nome)
+            except rede.ErroDeColeta as erro:
+                print(f"  falhou: {erro}")
+                continue
+            print(f"  -> {arquivo} ({tamanho / 1_000_000:.1f} MB)")
+            baixados.append(arquivo)
+            break
+        else:
+            falhas.append(nome)
+
+    if falhas:
+        raise SystemExit(
+            "\nNão foi possível baixar: " + ", ".join(falhas) + ".\n"
+            "\nO que costuma resolver, em ordem:\n"
+            "  1. Definir COLETOR_PROXY. O CDN do TSE recusa IP de datacenter,\n"
+            "     que é o dos runners do GitHub. Este é o motivo mais comum.\n"
+            "  2. Conferir o endereço em config/links.json — o TSE muda o\n"
+            "     caminho entre eleições, e o download não precisa de código novo\n"
+            "     para acompanhar, só do endereço certo.\n"
+            "  3. Baixar à mão em https://dadosabertos.tse.jus.br/ e apontar o\n"
+            "     script para o arquivo:\n"
+            "       python3 scripts/importar_tse.py dados/tse/consulta_cand_2026.zip\n"
+            "\nPara diagnosticar sem importar nada:\n"
+            "  python3 scripts/importar_tse.py --testar-download --ano " + str(ano)
+        )
     return baixados
+
+
+def testar_download(ano: int) -> int:
+    """Diz qual endereço responde, sem baixar o arquivo inteiro."""
+    from coletores import rede
+
+    situacao = rede.verificar_saida()
+    print(f"proxy configurado : {'sim' if situacao['proxy_configurado'] else 'não'}")
+    if situacao["proxy_host"]:
+        print(f"proxy             : {situacao['proxy_host']}")
+    print(f"IP de saída       : {situacao['ip_de_saida'] or '(não identificado)'}")
+    print()
+
+    import urllib.request
+
+    def sondar(url: str) -> tuple[bool, str]:
+        """HEAD com a mesma sequência de agentes que o download usa.
+
+        Testar só o primeiro agente faria o diagnóstico contradizer o
+        downloader: reportaria 403 numa URL que `baixar` consegue puxar com o
+        agente seguinte, e mandaria procurar o problema no lugar errado.
+        """
+        motivos = []
+        for agente in rede.AGENTES:
+            try:
+                requisicao = urllib.request.Request(
+                    url, method="HEAD", headers={"User-Agent": agente})
+                with rede._abridor().open(requisicao, timeout=60) as resposta:
+                    tamanho = resposta.headers.get("Content-Length")
+                    medida = (f"{int(tamanho) / 1_000_000:.1f} MB" if tamanho
+                              else "tamanho não informado")
+                    recuo = "" if agente is rede.AGENTES[0] else "  (com agente alternativo)"
+                    return True, f"{medida}{recuo}"
+            except Exception as erro:  # noqa: BLE001 - o diagnóstico reporta tudo
+                motivos.append(rede.esconder_credenciais(str(erro))[:60])
+        return False, "; ".join(dict.fromkeys(motivos))
+
+    problemas = 0
+    for nome, urls in urls_publicadas(ano).items():
+        print(f"{nome}:")
+        for url in urls:
+            ok, detalhe = sondar(url)
+            print(f"  {'ok  ' if ok else 'não '} {url}\n       {detalhe}")
+            if ok:
+                break
+        else:
+            problemas += 1
+            print(f"  nenhum endereço respondeu para {nome}")
+        print()
+
+    if problemas:
+        print("Enquanto nenhum endereço responder, o site não consegue montar a base.")
+        print("Ver docs/publicar.md, seção \"Quando o download do TSE falha\".")
+    return 1 if problemas else 0
 
 
 # ----------------------------------------------------------------------------
@@ -354,9 +478,14 @@ def main() -> int:
     p.add_argument("--ano", type=int, default=2026, help="ano da eleicao (padrao: 2026)")
     p.add_argument("--todos-os-anos", action="store_true",
                    help="importa todos os anos presentes nos arquivos, nao so --ano")
+    p.add_argument("--testar-download", action="store_true",
+                   help="só verifica quais endereços respondem, sem baixar nem importar")
     p.add_argument("--limpar", action="store_true",
                    help="apaga candidatos e bens antes de importar (dados externos sao mantidos)")
     args = p.parse_args()
+
+    if args.testar_download:
+        return testar_download(args.ano)
 
     origens = list(args.origens)
     if args.baixar:
