@@ -1,0 +1,21 @@
+# Base gerada localmente (reconstruida pelos importadores a partir dos arquivos
+# de origem; o que vale e o registro de importacao, nao o .sqlite)
+dados/*.sqlite
+dados/*.sqlite-wal
+dados/*.sqlite-shm
+
+# Arquivos brutos baixados do TSE (dezenas de MB, reproduziveis pelo importador)
+dados/tse/
+dados/cache/
+
+# Dados de demonstracao gerados por scripts/gerar_exemplo.py
+dados/externo/exemplo_externo.json
+
+# Listas de trabalho geradas por scripts/coletar.py --pendencias.
+# O resultado preenchido deve ser versionado; a lista em branco, nao.
+dados/externo/pendencias_*.csv
+
+__pycache__/
+*.pyc
+.venv/
+.DS_Store

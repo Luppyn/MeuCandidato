@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MeuCandidato — consulta de candidaturas</title>
+<meta name="description" content="Planilha de consulta e cruzamento de informacoes publicas sobre candidatos as eleicoes no Brasil.">
+<link rel="stylesheet" href="/estilo.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🗳️</text></svg>">
+</head>
+<body>
+
+<header class="topo">
+  <div class="topo-marca">
+    <span class="topo-logo" aria-hidden="true">🗳️</span>
+    <div>
+      <h1>MeuCandidato</h1>
+      <p>Consulta e cruzamento de informações públicas sobre candidaturas</p>
+    </div>
+  </div>
+  <nav class="topo-links">
+    <a href="#" data-painel="fontes">Fontes</a>
+    <a href="#" data-painel="procedencia">Procedência dos dados</a>
+    <a href="https://github.com/Luppyn/MeuCandidato" rel="noreferrer">Código-fonte</a>
+  </nav>
+</header>
+
+<div id="aviso-base" class="aviso" hidden></div>
+
+<main>
+  <!-- Tela inicial: nada é carregado antes dos filtros -->
+  <section id="tela-filtros" class="cartao">
+    <h2>Escolha o que consultar</h2>
+    <p class="ajuda">
+      Nenhum dado é carregado sem filtro. Informe pelo menos o <strong>cargo</strong> e a
+      <strong>UF</strong> para montar a planilha.
+    </p>
+
+    <form id="form-filtros" class="filtros">
+      <label>
+        <span>Eleição <em>*</em></span>
+        <select name="ano" id="f-ano" required></select>
+      </label>
+
+      <label>
+        <span>Cargo <em>*</em></span>
+        <select name="cargo" id="f-cargo" required>
+          <option value="">Selecione…</option>
+        </select>
+      </label>
+
+      <label>
+        <span>UF <em>*</em></span>
+        <select name="uf" id="f-uf" required>
+          <option value="">Selecione…</option>
+        </select>
+      </label>
+
+      <label id="rotulo-ue" hidden>
+        <span>Município / unidade eleitoral</span>
+        <select name="ue" id="f-ue">
+          <option value="">Todos</option>
+        </select>
+      </label>
+
+      <label>
+        <span>Nome do candidato</span>
+        <input type="search" name="nome" id="f-nome" placeholder="parte do nome ou nome na urna"
+               autocomplete="off">
+      </label>
+
+      <label>
+        <span>Partido</span>
+        <select name="partido" id="f-partido">
+          <option value="">Todos</option>
+        </select>
+      </label>
+
+      <label>
+        <span>Situação do registro</span>
+        <select name="situacao" id="f-situacao">
+          <option value="">Todas</option>
+        </select>
+      </label>
+
+      <div class="filtros-acoes">
+        <button type="submit" class="botao-principal">Consultar</button>
+        <button type="reset" class="botao-secundario">Limpar</button>
+      </div>
+    </form>
+    <p id="erro-filtros" class="erro" hidden></p>
+  </section>
+
+  <!-- Resultado -->
+  <section id="tela-resultado" hidden>
+    <div class="barra-resultado">
+      <div class="barra-info">
+        <button type="button" id="btn-voltar" class="botao-secundario">← Novos filtros</button>
+        <span id="resumo-consulta"></span>
+      </div>
+      <div class="barra-acoes">
+        <label class="alternador">
+          <input type="checkbox" id="chk-pesadas"> Mostrar todas as colunas
+        </label>
+        <a id="link-csv" class="botao-secundario" href="#" download>Baixar CSV</a>
+      </div>
+    </div>
+
+    <div id="tabela-caixa" class="tabela-caixa">
+      <table id="tabela">
+        <thead><tr id="cabecalho"></tr></thead>
+        <tbody id="corpo"></tbody>
+      </table>
+    </div>
+
+    <div id="paginacao" class="paginacao" hidden>
+      <button type="button" id="btn-anterior" class="botao-secundario">Anterior</button>
+      <span id="info-pagina"></span>
+      <button type="button" id="btn-proxima" class="botao-secundario">Próxima</button>
+    </div>
+
+    <p id="vazio" class="vazio" hidden>Nenhum candidato encontrado com esses filtros.</p>
+  </section>
+</main>
+
+<div id="modal" class="modal" hidden>
+  <div class="modal-caixa" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
+    <button type="button" id="modal-fechar" class="modal-fechar" aria-label="Fechar">×</button>
+    <h2 id="modal-titulo"></h2>
+    <div id="modal-corpo"></div>
+  </div>
+</div>
+
+<footer class="rodape">
+  <p>
+    Ferramenta de consulta a dados públicos. Os dados cadastrais, de escolaridade e de
+    patrimônio vêm dos arquivos oficiais do TSE; as demais colunas são preenchidas por
+    importação externa e trazem sempre o link para conferência na fonte original.
+  </p>
+  <p>
+    Todo o código, o esquema do banco e o registro de cada importação são públicos.
+    <a href="#" data-painel="procedencia">Veja a procedência dos dados carregados</a>.
+  </p>
+</footer>
+
+<script src="/app.js"></script>
+</body>
+</html>

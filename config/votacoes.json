@@ -1,0 +1,5 @@
+{
+  "_leia_me": "Curadoria das votacoes nominais usadas para calcular o indicador ideologico por tema. Este arquivo e a metodologia: quem discorda do indicador pode ler exatamente quais votacoes entraram na conta, com que peso e qual voto foi considerado 'a favor' do tema. Por isso ele fica versionado no repositorio, e nao escondido no codigo.\n\nComo preencher: pegue o id da votacao em https://dadosabertos.camara.leg.br/api/v2/votacoes (ou na pagina da proposicao) e registre qual voto ('Sim' ou 'Nao') representa a posicao de referencia daquele tema. A escolha da posicao de referencia e um julgamento editorial - descreva-a em 'posicao_descrita' para que o leitor saiba o que o percentual mede.\n\nEnquanto 'temas' estiver vazio, o coletor 'congresso' apenas identifica o parlamentar na base oficial e nao calcula indice nenhum.",
+  "casa": "camara",
+  "temas": []
+}

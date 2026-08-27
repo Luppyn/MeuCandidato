@@ -1,0 +1,4 @@
+chave;fonte;campo;valor;valor_num;url;observacao;coletado_em
+2026-6-SP-SP-10123;cnia;situacao;Nada consta;0;https://www.cnj.jus.br/improbidade_adm/consultar_requerido.php;Consulta manual por nome completo em 27/08/2026;2026-08-27T10:00:00-03:00
+2026-6-SP-SP-10123;excelencias;processos;2 processos no STF;2;https://www.excelencias.org.br/;Contagem de processos listados no perfil;2026-08-27T10:00:00-03:00
+2026-6-SP-SP-10123;congresso;espectro;Centro-direita;0.32;https://dadosabertos.camara.leg.br/;Indice calculado sobre votacoes nominais da legislatura;2026-08-27T10:00:00-03:00

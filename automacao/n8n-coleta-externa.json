@@ -1,0 +1,151 @@
+{
+  "name": "MeuCandidato - coleta externa",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "weeks", "triggerAtDay": [1], "triggerAtHour": 4 }
+          ]
+        }
+      },
+      "id": "gatilho-semanal",
+      "name": "Toda segunda as 4h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-620, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "a1", "name": "base_url", "value": "http://meucandidato:8000", "type": "string" },
+            { "id": "a2", "name": "ano", "value": "2026", "type": "string" },
+            { "id": "a3", "name": "cargo", "value": "6", "type": "string" },
+            { "id": "a4", "name": "uf", "value": "SP", "type": "string" },
+            { "id": "a5", "name": "fonte", "value": "noticias", "type": "string" },
+            { "id": "a6", "name": "campo", "value": "qtd", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "recorte",
+      "name": "Recorte a coletar",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-400, 300],
+      "notes": "Qual fatia da base sera coletada nesta execucao. Trocar cargo/UF aqui basta para apontar o fluxo para outro recorte."
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.base_url }}/api/candidatos",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "ano", "value": "={{ $json.ano }}" },
+            { "name": "cargo", "value": "={{ $json.cargo }}" },
+            { "name": "uf", "value": "={{ $json.uf }}" },
+            { "name": "limite", "value": "1000" }
+          ]
+        },
+        "options": { "timeout": 30000 }
+      },
+      "id": "listar",
+      "name": "Listar candidatos do site",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-180, 300],
+      "notes": "A propria API do site diz quem entra na coleta. Nao ha lista duplicada em lugar nenhum."
+    },
+    {
+      "parameters": { "fieldToSplitOut": "candidatos", "options": {} },
+      "id": "separar",
+      "name": "Um item por candidato",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [40, 300]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": { "reset": false }
+      },
+      "id": "lote",
+      "name": "Um de cada vez",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [260, 300],
+      "notes": "Processa em lote de 1 para respeitar o intervalo entre requisicoes a fonte."
+    },
+    {
+      "parameters": {
+        "url": "=https://news.google.com/rss/search?q={{ encodeURIComponent('\"' + $json.nm_candidato + '\" ' + $json.sg_uf) }}&hl=pt-BR&gl=BR&ceid=BR%3Apt-419",
+        "options": {
+          "timeout": 45000,
+          "response": { "response": { "neverError": true, "responseFormat": "text" } },
+          "proxy": "={{ $env.COLETOR_PROXY || undefined }}"
+        }
+      },
+      "id": "consultar-fonte",
+      "name": "Consultar a fonte",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 300],
+      "onError": "continueRegularOutput",
+      "notes": "Exemplo com o feed publico de busca de noticias, que responde a uma requisicao HTTP comum. Para uma fonte que exija IP residencial ou desbloqueio, defina COLETOR_PROXY no n8n ou troque este no por um HTTP Request contra a API do servico de desbloqueio - o resto do fluxo nao muda."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Traduz a resposta da fonte para o formato que o importador do site le.\n// Um objeto por celula da planilha: chave + fonte + campo + valor.\nconst saida = [];\n\nfor (const item of $input.all()) {\n  const candidato = $('Um de cada vez').first().json;\n  const corpo = typeof item.json.data === 'string' ? item.json.data : (item.json.body || '');\n\n  const titulos = [...corpo.matchAll(/<title><!\\[CDATA\\[(.*?)\\]\\]><\\/title>/g)].map(m => m[1]);\n  // O primeiro <title> do RSS e o titulo do proprio feed, nao uma materia.\n  const materias = titulos.slice(1);\n\n  const busca = 'https://news.google.com/search?q=' +\n    encodeURIComponent('\"' + candidato.nm_candidato + '\" ' + candidato.sg_uf) +\n    '&hl=pt-BR&gl=BR&ceid=BR%3Apt-419';\n\n  saida.push({\n    json: {\n      chave: candidato.chave,\n      fonte: $('Recorte a coletar').first().json.fonte,\n      campo: $('Recorte a coletar').first().json.campo,\n      valor: materias.length + ' materia(s)',\n      valor_num: materias.length,\n      url: busca,\n      observacao: 'Coletado pelo fluxo do n8n a partir do feed publico de busca. A contagem mede repercussao, nao veracidade.',\n      coletado_em: new Date().toISOString(),\n    },\n  });\n}\n\nreturn saida;"
+      },
+      "id": "mapear",
+      "name": "Mapear para o formato do importador",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 300],
+      "notes": "O formato de saida esta documentado em docs/automacao-externa.md e e o mesmo aceito por scripts/importar_externos.py."
+    },
+    {
+      "parameters": {
+        "operation": "toJson",
+        "mode": "jsonToBinary",
+        "options": { "fileName": "n8n_coleta.json", "format": true }
+      },
+      "id": "arquivo",
+      "name": "Gerar arquivo JSON",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [1140, 200]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "=/dados/externo/n8n_{{ $('Recorte a coletar').first().json.fonte }}_{{ $now.format('yyyy-LL-dd') }}.json",
+        "options": {}
+      },
+      "id": "gravar",
+      "name": "Gravar na pasta compartilhada",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [1360, 200],
+      "notes": "Monte a pasta dados/externo do site como volume do container do n8n. Depois disso, rodar scripts/importar_externos.py carrega o arquivo na base - com data e hash registrados."
+    }
+  ],
+  "connections": {
+    "Toda segunda as 4h": { "main": [[{ "node": "Recorte a coletar", "type": "main", "index": 0 }]] },
+    "Recorte a coletar": { "main": [[{ "node": "Listar candidatos do site", "type": "main", "index": 0 }]] },
+    "Listar candidatos do site": { "main": [[{ "node": "Um item por candidato", "type": "main", "index": 0 }]] },
+    "Um item por candidato": { "main": [[{ "node": "Um de cada vez", "type": "main", "index": 0 }]] },
+    "Um de cada vez": {
+      "main": [
+        [{ "node": "Gerar arquivo JSON", "type": "main", "index": 0 }],
+        [{ "node": "Consultar a fonte", "type": "main", "index": 0 }]
+      ]
+    },
+    "Consultar a fonte": { "main": [[{ "node": "Mapear para o formato do importador", "type": "main", "index": 0 }]] },
+    "Mapear para o formato do importador": { "main": [[{ "node": "Um de cada vez", "type": "main", "index": 0 }]] },
+    "Gerar arquivo JSON": { "main": [[{ "node": "Gravar na pasta compartilhada", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}

@@ -1,0 +1,6 @@
+.git
+dados/tse
+dados/cache
+dados/*.sqlite*
+__pycache__
+*.pyc
