@@ -1,0 +1,97 @@
+# Coleta agendada das fontes sem API oficial.
+#
+# Alternativa a manter um servico de automacao rodando: o GitHub executa os
+# coletores no horario marcado e comita o resultado em dados/externo/. Quem
+# hospeda o site so precisa dar um `git pull` e rodar o importador - ou deixar
+# o proprio deploy fazer isso.
+#
+# Colocar o resultado no repositorio tem uma vantagem alem da comodidade: o
+# historico do git passa a ser o registro publico da coleta. Da para ver, commit
+# a commit, o que cada fonte devolveu e quando - inclusive quando um valor mudou.
+
+name: Coleta externa
+
+on:
+  schedule:
+    - cron: "0 7 * * 1"   # segundas, 7h UTC (4h em Brasilia)
+  workflow_dispatch:
+    inputs:
+      cargo:
+        description: "Codigo do cargo no TSE (1 presidente, 3 governador, 5 senador, 6 dep. federal, 7 dep. estadual)"
+        required: true
+        default: "6"
+      uf:
+        description: "Sigla da UF"
+        required: true
+        default: "SP"
+      fontes:
+        description: "Fontes a coletar, separadas por espaco (vazio = todas as automaticas)"
+        required: false
+        default: "congresso noticias"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: coleta-externa
+  cancel-in-progress: false
+
+jobs:
+  coletar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Os coletores nao usam biblioteca externa: nada para instalar.
+
+      - name: Montar a base do TSE
+        run: python3 scripts/importar_tse.py --baixar --ano 2026
+
+      - name: Coletar
+        env:
+          # Opcionais: so precisam existir se alguma fonte exigir desbloqueio.
+          COLETOR_PROXY: ${{ secrets.COLETOR_PROXY }}
+          COLETOR_UNLOCKER_URL: ${{ secrets.COLETOR_UNLOCKER_URL }}
+          COLETOR_UNLOCKER_TOKEN: ${{ secrets.COLETOR_UNLOCKER_TOKEN }}
+          COLETOR_UNLOCKER_ZONA: ${{ secrets.COLETOR_UNLOCKER_ZONA }}
+          COLETOR_INTERVALO: "2.5"
+        run: |
+          cargo="${{ inputs.cargo || '6' }}"
+          uf="${{ inputs.uf || 'SP' }}"
+          fontes="${{ inputs.fontes || 'congresso noticias' }}"
+
+          argumentos=""
+          for fonte in $fontes; do
+            argumentos="$argumentos --fonte $fonte"
+          done
+
+          # Codigo 2 significa "rodou, mas nenhuma fonte devolveu registro":
+          # nao e falha do fluxo, e informacao para o passo seguinte.
+          python3 scripts/coletar.py $argumentos --cargo "$cargo" --uf "$uf" \
+            --ano 2026 --somente-deferidos || [ $? -eq 2 ]
+
+      - name: Conferir o que foi coletado
+        id: conferir
+        run: |
+          python3 scripts/importar_externos.py dados/externo/ --estrito
+          if git status --porcelain dados/externo | grep -q .; then
+            echo "mudou=sim" >> "$GITHUB_OUTPUT"
+          else
+            echo "mudou=nao" >> "$GITHUB_OUTPUT"
+            echo "Nenhuma mudanca nos dados coletados."
+          fi
+
+      - name: Publicar o resultado
+        if: steps.conferir.outputs.mudou == 'sim'
+        run: |
+          git config user.name "coleta-automatica"
+          git config user.email "coleta-automatica@users.noreply.github.com"
+          git add dados/externo
+          git commit -m "Coleta externa de $(date -u +%Y-%m-%d)"
+          git push

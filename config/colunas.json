@@ -1,0 +1,43 @@
+{
+  "_leia_me": "Define as colunas da planilha. Colunas com tipo 'externo' saem da tabela dado_externo e sao preenchidas por importacao de fora; para criar uma coluna nova basta acrescentar uma entrada aqui - nao e preciso mexer em codigo. 'peso: pesada' tira a coluna da grade principal e a joga para o painel expandido da linha.",
+  "colunas": [
+    { "id": "nm_urna",                   "titulo": "Nome na urna",     "grupo": "Identificação", "tipo": "texto",   "largura": 210, "fixa": true, "fonte": "tse_cand" },
+    { "id": "nr_candidato",              "titulo": "Numero",           "grupo": "Identificação", "tipo": "texto",   "largura": 80,  "fonte": "tse_cand" },
+    { "id": "sg_partido",                "titulo": "Partido",          "grupo": "Identificação", "tipo": "texto",   "largura": 100, "fonte": "tse_cand" },
+    { "id": "ds_cargo",                  "titulo": "Cargo",            "grupo": "Identificação", "tipo": "texto",   "largura": 150, "fonte": "tse_cand" },
+    { "id": "sg_uf",                     "titulo": "UF",               "grupo": "Identificação", "tipo": "texto",   "largura": 60,  "fonte": "tse_cand" },
+    { "id": "nm_ue",                     "titulo": "Unidade eleitoral","grupo": "Identificação", "tipo": "texto",   "largura": 150, "peso": "pesada", "fonte": "tse_cand" },
+    { "id": "ds_situacao_candidatura",   "titulo": "Situação registro","grupo": "Identificação", "tipo": "texto",   "largura": 140, "fonte": "tse_cand" },
+    { "id": "ds_detalhe_situacao_cand",  "titulo": "Detalhe situação", "grupo": "Identificação", "tipo": "texto",   "largura": 160, "peso": "pesada", "fonte": "tse_cand" },
+    { "id": "nm_coligacao",              "titulo": "Coligação",        "grupo": "Identificação", "tipo": "texto",   "largura": 180, "peso": "pesada", "fonte": "tse_cand" },
+    { "id": "ds_composicao_coligacao",   "titulo": "Composição",       "grupo": "Identificação", "tipo": "texto",   "largura": 240, "peso": "pesada", "fonte": "tse_cand" },
+    { "id": "nm_candidato",              "titulo": "Nome completo",    "grupo": "Perfil",        "tipo": "texto",   "largura": 220, "peso": "pesada", "fonte": "tse_cand" },
+    { "id": "ds_genero",                 "titulo": "Gênero",           "grupo": "Perfil",        "tipo": "texto",   "largura": 110, "fonte": "tse_cand" },
+    { "id": "dt_nascimento",             "titulo": "Nascimento",       "grupo": "Perfil",        "tipo": "data",    "largura": 110, "fonte": "tse_cand" },
+    { "id": "ds_estado_civil",           "titulo": "Estado civil",     "grupo": "Perfil",        "tipo": "texto",   "largura": 130, "peso": "pesada", "fonte": "tse_cand" },
+    { "id": "ds_cor_raca",               "titulo": "Cor/raça",         "grupo": "Perfil",        "tipo": "texto",   "largura": 110, "fonte": "tse_cand" },
+    { "id": "ds_ocupacao",               "titulo": "Ocupação",         "grupo": "Perfil",        "tipo": "texto",   "largura": 190, "fonte": "tse_cand" },
+    { "id": "ds_grau_instrucao",         "titulo": "Escolaridade",     "grupo": "Perfil",        "tipo": "texto",   "largura": 190, "fonte": "tse_cand" },
+    { "id": "nm_municipio_nascimento",   "titulo": "Município natal",  "grupo": "Perfil",        "tipo": "texto",   "largura": 160, "peso": "pesada", "fonte": "tse_cand" },
+    { "id": "st_reeleicao",              "titulo": "Reeleição",        "grupo": "Perfil",        "tipo": "texto",   "largura": 100, "peso": "pesada", "fonte": "tse_cand" },
+    { "id": "total_bens",                "titulo": "Patrimônio (R$)",  "grupo": "Patrimônio",    "tipo": "moeda",   "largura": 150, "fonte": "tse_cand" },
+    { "id": "qtd_bens",                  "titulo": "Qtd. bens",        "grupo": "Patrimônio",    "tipo": "numero",  "largura": 100, "fonte": "tse_cand" },
+
+    { "id": "cnia.situacao",             "titulo": "CNIA",             "grupo": "Judicial",      "tipo": "externo", "largura": 150, "fonte": "cnia" },
+    { "id": "bnmp.situacao",             "titulo": "BNMP",             "grupo": "Judicial",      "tipo": "externo", "largura": 140, "peso": "pesada", "fonte": "bnmp" },
+    { "id": "excelencias.processos",     "titulo": "Processos (Excelências)", "grupo": "Judicial","tipo": "externo","largura": 180, "fonte": "excelencias" },
+    { "id": "excelencias.contas_rejeitadas", "titulo": "Contas rejeitadas", "grupo": "Judicial", "tipo": "externo", "largura": 160, "peso": "pesada", "fonte": "excelencias" },
+    { "id": "tribunais.processos",       "titulo": "Processos (tribunais)", "grupo": "Judicial", "tipo": "externo", "largura": 170, "peso": "pesada", "fonte": "tribunais" },
+
+    { "id": "congresso.espectro",        "titulo": "Espectro (votações)",  "grupo": "Ideológico", "tipo": "externo", "largura": 160, "fonte": "congresso" },
+    { "id": "congresso.alinhamento_governo", "titulo": "Alinhamento governo", "grupo": "Ideológico", "tipo": "externo", "largura": 170, "peso": "pesada", "fonte": "congresso" },
+    { "id": "comovotou.indice",          "titulo": "ComoVotou",        "grupo": "Ideológico",    "tipo": "externo", "largura": 140, "peso": "pesada", "fonte": "comovotou" },
+    { "id": "atlas_politico.posicao",    "titulo": "Atlas Politico",   "grupo": "Ideológico",    "tipo": "externo", "largura": 150, "peso": "pesada", "fonte": "atlas_politico" },
+    { "id": "parlamentometro.alinhamento", "titulo": "Parlamentômetro","grupo": "Ideológico",    "tipo": "externo", "largura": 150, "peso": "pesada", "fonte": "parlamentometro" },
+    { "id": "placar_congresso.classificacao", "titulo": "Placar Congresso", "grupo": "Ideológico", "tipo": "externo", "largura": 160, "peso": "pesada", "fonte": "placar_congresso" },
+
+    { "id": "proposta.url",              "titulo": "Proposta de governo", "grupo": "Posicionamento", "tipo": "externo", "largura": 170, "peso": "pesada", "fonte": "proposta" },
+    { "id": "checagem.verificacoes",     "titulo": "Checagens",        "grupo": "Posicionamento", "tipo": "externo", "largura": 150, "peso": "pesada", "fonte": "checagem" },
+    { "id": "noticias.qtd",              "titulo": "Notícias",         "grupo": "Posicionamento", "tipo": "externo", "largura": 130, "fonte": "noticias" }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "_leia_me": "Modelos de URL do TSE, isolados do codigo porque o TSE muda esses enderecos entre eleicoes. Se um download falhar, corrija aqui - nao no codigo. Marcadores: {ano}, {uf}, {sq_candidato}, {cd_eleicao}, {sg_ue}.",
+  "download_tse": {
+    "consulta_cand": "https://cdn.tse.jus.br/estatistica/sead/odsele/consulta_cand/consulta_cand_{ano}.zip",
+    "bem_candidato": "https://cdn.tse.jus.br/estatistica/sead/odsele/bem_candidato/bem_candidato_{ano}.zip"
+  },
+  "perfil_candidato": "https://divulgacandcontas.tse.jus.br/divulga/#/candidato/{ano}/{cd_eleicao}/{sg_ue}/{sq_candidato}",
+  "foto_candidato": "https://divulgacandcontas.tse.jus.br/divulga/rest/arquivo/img/{cd_eleicao}/{sq_candidato}",
+  "dataset_tse": "https://dadosabertos.tse.jus.br/dataset/candidatos-{ano}"
+}

@@ -1,0 +1,145 @@
+{
+  "_leia_me": "Registro publico das fontes usadas pelo MeuCandidato. 'tem_api' indica se existe interface programatica oficial e documentada. 'url_consulta_manual' e um modelo com marcadores {nome}, {nome_url}, {uf}, {cargo}, {ano} usados para montar o link de conferencia manual exibido na planilha quando nao ha dado coletado.",
+  "fontes": [
+    {
+      "slug": "tse_cand",
+      "nome": "TSE — DivulgaCandContas / Dados Abertos",
+      "url": "https://dadosabertos.tse.jus.br/dataset/candidatos-2026",
+      "categoria": "Cadastro",
+      "tem_api": 1,
+      "licenca": "Dados abertos do TSE",
+      "descricao": "Dados cadastrais, situação do registro, grau de instrução e bens declarados. Base primária do site, importada dos arquivos CSV oficiais.",
+      "url_consulta_manual": "https://divulgacandcontas.tse.jus.br/divulga/#/"
+    },
+    {
+      "slug": "tse_estatisticas",
+      "nome": "TSE — Estatísticas Eleitorais",
+      "url": "https://sig.tse.jus.br/ords/dwapr/seai/r/sig-eleicao-candidatura/home",
+      "categoria": "Cadastro",
+      "tem_api": 0,
+      "licenca": "Dados abertos do TSE",
+      "descricao": "Visão agregada da eleição (distribuição de escolaridade, gênero, cor/raça), usada apenas para comparação com o dado individual.",
+      "url_consulta_manual": "https://sig.tse.jus.br/ords/dwapr/seai/r/sig-eleicao-candidatura/home"
+    },
+    {
+      "slug": "cnia",
+      "nome": "CNJ — CNIA (improbidade e inelegibilidade)",
+      "url": "https://www.cnj.jus.br/improbidade_adm/consultar_requerido.php",
+      "categoria": "Judicial",
+      "tem_api": 0,
+      "licenca": "Consulta publica",
+      "descricao": "Condenações definitivas por improbidade administrativa e atos que geram inelegibilidade. A consulta pública exige captcha a cada busca, então não há coleta automática confiável: o site oferece o link direto e aceita o resultado preenchido por fora.",
+      "url_consulta_manual": "https://www.cnj.jus.br/improbidade_adm/consultar_requerido.php"
+    },
+    {
+      "slug": "bnmp",
+      "nome": "CNJ — BNMP (mandados de prisão)",
+      "url": "https://portalbnmp.cnj.jus.br/",
+      "categoria": "Judicial",
+      "tem_api": 0,
+      "licenca": "Consulta publica",
+      "descricao": "Banco Nacional de Mandados de Prisão. Consulta pública com captcha; entra na planilha como link de conferência manual.",
+      "url_consulta_manual": "https://portalbnmp.cnj.jus.br/"
+    },
+    {
+      "slug": "excelencias",
+      "nome": "Transparência Brasil — Excelências",
+      "url": "https://www.excelencias.org.br/",
+      "categoria": "Judicial",
+      "tem_api": 0,
+      "licenca": "Conteúdo público da Transparência Brasil",
+      "descricao": "Processos no STF, STJ e Tribunais de Contas, histórico de mandatos e contas rejeitadas de parlamentares.",
+      "url_consulta_manual": "https://www.excelencias.org.br/busca?q={nome_url}"
+    },
+    {
+      "slug": "tribunais",
+      "nome": "Tribunais de Justiça e TRFs",
+      "url": "https://www.cnj.jus.br/poder-judiciario/tribunais/",
+      "categoria": "Judicial",
+      "tem_api": 0,
+      "licenca": "Consulta processual pública",
+      "descricao": "Consulta processual por nome, tribunal a tribunal. Não existe API nacional unificada; cada tribunal tem seu próprio sistema e suas próprias regras de acesso.",
+      "url_consulta_manual": "https://www.cnj.jus.br/poder-judiciario/tribunais/"
+    },
+    {
+      "slug": "comovotou",
+      "nome": "ComoVotou.org",
+      "url": "https://comovotou.org/sobre",
+      "categoria": "Ideológico",
+      "tem_api": 0,
+      "licenca": "Conteúdo público",
+      "descricao": "Índice de alinhamento por tema calculado sobre votações nominais reais. Aplica-se apenas a quem já exerceu mandato no Congresso.",
+      "url_consulta_manual": "https://comovotou.org/"
+    },
+    {
+      "slug": "atlas_politico",
+      "nome": "Atlas Político",
+      "url": "http://atlaspolitico.com.br/metodologia",
+      "categoria": "Ideológico",
+      "tem_api": 0,
+      "licenca": "Conteúdo público",
+      "descricao": "Mapa ideológico esquerda–direita e governo–oposição (algoritmo Poole-Rosenthal) e Ranking 5D.",
+      "url_consulta_manual": "http://atlaspolitico.com.br/"
+    },
+    {
+      "slug": "parlamentometro",
+      "nome": "Parlamentômetro",
+      "url": "https://www.parlamentometro.com.br/",
+      "categoria": "Ideológico",
+      "tem_api": 0,
+      "licenca": "Conteúdo público",
+      "descricao": "Votos, alinhamentos e proposições a partir dos dados oficiais da Câmara e do Senado.",
+      "url_consulta_manual": "https://www.parlamentometro.com.br/"
+    },
+    {
+      "slug": "placar_congresso",
+      "nome": "Placar Congresso",
+      "url": "https://placarcongresso.com/pages/c-votos.html",
+      "categoria": "Ideológico",
+      "tem_api": 0,
+      "licenca": "Conteúdo público",
+      "descricao": "Classificação governo / centrão / oposição por percentual de votações acompanhadas.",
+      "url_consulta_manual": "https://placarcongresso.com/pages/c-votos.html"
+    },
+    {
+      "slug": "congresso",
+      "nome": "Câmara dos Deputados e Senado — Dados Abertos",
+      "url": "https://dadosabertos.camara.leg.br/",
+      "categoria": "Ideológico",
+      "tem_api": 1,
+      "licenca": "Dados abertos oficiais",
+      "descricao": "APIs oficiais de votações nominais. Usadas para calcular o indicador de alinhamento por tema diretamente da fonte primária, sem depender de agregadores de terceiros.",
+      "url_consulta_manual": "https://www.camara.leg.br/deputados/"
+    },
+    {
+      "slug": "proposta",
+      "nome": "TSE — Proposta de governo",
+      "url": "https://divulgacandcontas.tse.jus.br/divulga/#/",
+      "categoria": "Posicionamento",
+      "tem_api": 0,
+      "licenca": "Documento público anexado ao registro",
+      "descricao": "Proposta de governo anexada ao pedido de registro. Obrigatória para presidente, governador e prefeito.",
+      "url_consulta_manual": "https://divulgacandcontas.tse.jus.br/divulga/#/"
+    },
+    {
+      "slug": "checagem",
+      "nome": "Agências de checagem",
+      "url": "https://www.aosfatos.org/",
+      "categoria": "Posicionamento",
+      "tem_api": 0,
+      "licenca": "Conteúdo público das agencias",
+      "descricao": "Aos Fatos, Agência Lupa e Estadão Verifica: checagens de declarações públicas atribuídas ao candidato.",
+      "url_consulta_manual": "https://www.aosfatos.org/busca/?q={nome_url}"
+    },
+    {
+      "slug": "noticias",
+      "nome": "Busca de notícias",
+      "url": "https://news.google.com/",
+      "categoria": "Posicionamento",
+      "tem_api": 0,
+      "licenca": "Feed publico de busca",
+      "descricao": "Levantamento de matérias jornalísticas por nome do candidato, opcionalmente combinado com um termo de tema.",
+      "url_consulta_manual": "https://news.google.com/search?q={nome_url}&hl=pt-BR&gl=BR&ceid=BR%3Apt-419"
+    }
+  ]
+}
